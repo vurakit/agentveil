@@ -12,6 +12,7 @@ services:
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=
       - VEIL_ROUTER_CONFIG=/etc/agentveil/router.yaml
+      - VEIL_DEFAULT_ROLE=${VEIL_DEFAULT_ROLE:-viewer}
       - VEIL_DISCORD_WEBHOOK_URL=${VEIL_DISCORD_WEBHOOK_URL:-}
     volumes:
       - ./router.yaml:/etc/agentveil/router.yaml:ro

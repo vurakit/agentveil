@@ -38,6 +38,8 @@ type Router struct {
 
 	// Request modifier — applied before forwarding (e.g. PII anonymization)
 	requestModifier func(*http.Request)
+	// Response modifier — applied after receiving response (e.g. PII rehydration)
+	responseModifier func(*http.Response) error
 }
 
 // New creates a Router from config
@@ -80,19 +82,29 @@ func New(cfg *RouterConfig) (*Router, error) {
 
 				// Set provider API key if configured
 				if pc.APIKey != "" {
-					if pc.AuthMethod == "query" {
+					switch pc.AuthMethod {
+					case "query":
 						q := req.URL.Query()
 						q.Set(pc.AuthParam, pc.APIKey)
 						req.URL.RawQuery = q.Encode()
-					} else {
+					case "x-api-key":
+						req.Header.Set("x-api-key", pc.APIKey)
+					default: // "header" — Bearer token
 						req.Header.Set("Authorization", "Bearer "+pc.APIKey)
 					}
 				}
 
-				// Apply custom request modifier
+				// Apply custom request modifier (PII anonymization)
 				if r.requestModifier != nil {
+					slog.Debug("applying request modifier", "provider", pc.Name, "path", req.URL.Path)
 					r.requestModifier(req)
 				}
+			},
+			ModifyResponse: func(resp *http.Response) error {
+				if r.responseModifier != nil {
+					return r.responseModifier(resp)
+				}
+				return nil
 			},
 			ErrorHandler: func(w http.ResponseWriter, req *http.Request, err error) {
 				slog.Warn("provider error", "provider", pc.Name, "error", err)
@@ -139,6 +151,11 @@ func New(cfg *RouterConfig) (*Router, error) {
 // SetRequestModifier sets a function that modifies requests before forwarding
 func (r *Router) SetRequestModifier(fn func(*http.Request)) {
 	r.requestModifier = fn
+}
+
+// SetResponseModifier sets a function that modifies responses before returning to client
+func (r *Router) SetResponseModifier(fn func(*http.Response) error) {
+	r.responseModifier = fn
 }
 
 func (r *Router) buildLoadBalanceLists() {

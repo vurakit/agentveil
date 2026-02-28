@@ -19,7 +19,8 @@ import (
 
 // Config holds proxy configuration
 type Config struct {
-	TargetURL string // upstream LLM API base URL
+	TargetURL   string // upstream LLM API base URL
+	DefaultRole string // default role when X-User-Role not set (viewer/admin/operator)
 }
 
 // Option configures the Server
@@ -42,6 +43,7 @@ func WithWebhook(d *webhook.Dispatcher) Option {
 
 // Server is the Agent Veil reverse proxy
 type Server struct {
+	config      Config
 	proxy       *httputil.ReverseProxy
 	target      *url.URL
 	detector    *detector.Detector
@@ -58,7 +60,12 @@ func New(cfg Config, det *detector.Detector, v *vault.Vault, opts ...Option) (*S
 		return nil, err
 	}
 
+	if cfg.DefaultRole == "" {
+		cfg.DefaultRole = "viewer"
+	}
+
 	s := &Server{
+		config:   cfg,
 		target:   target,
 		detector: det,
 		vault:    v,
@@ -304,6 +311,86 @@ func AnonymizeRequest(det *detector.Detector, v *vault.Vault, wh ...*webhook.Dis
 
 		req.Body = io.NopCloser(bytes.NewBufferString(anonymized))
 		req.ContentLength = int64(len(anonymized))
+	}
+}
+
+// RehydrateResponse returns a response modifier that rehydrates PII tokens in responses.
+// Used by the router to apply PII rehydration in multi-provider mode.
+func RehydrateResponse(v *vault.Vault, defaultRole string) func(*http.Response) error {
+	return func(resp *http.Response) error {
+		contentType := resp.Header.Get("Content-Type")
+
+		sessionID := extractSessionIDFromResponse(resp)
+		role := ""
+		if resp.Request != nil {
+			role = resp.Request.Header.Get("X-User-Role")
+		}
+		if role == "" {
+			role = defaultRole
+		}
+
+		// For SSE streams, wrap with streaming rehydrator
+		if strings.Contains(contentType, "text/event-stream") {
+			resp.Body = newSSERehydrator(resp.Body, v, sessionID)
+			return nil
+		}
+
+		// Standard JSON response — read, rehydrate, replace
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+
+		mappings, err := v.LookupAll(context.Background(), sessionID)
+		if err != nil || len(mappings) == 0 {
+			resp.Body = io.NopCloser(bytes.NewReader(body))
+			return nil
+		}
+
+		result := string(body)
+		for token, original := range mappings {
+			replacement := original
+			if strings.EqualFold(role, "viewer") {
+				replacement = maskValue(original)
+			}
+			result = strings.ReplaceAll(result, token, replacement)
+		}
+
+		log.Printf("[router] rehydrated %d tokens for session %s (role=%s)", len(mappings), sessionID, role)
+
+		resp.Body = io.NopCloser(bytes.NewBufferString(result))
+		resp.ContentLength = int64(len(result))
+		return nil
+	}
+}
+
+// RoleMiddleware returns standalone middleware that sets default role.
+// Used in router mode where there's no Server instance.
+func RoleMiddleware(defaultRole string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			role := r.Header.Get("X-User-Role")
+			if role == "" {
+				role = defaultRole
+				r.Header.Set("X-User-Role", role)
+			}
+
+			role = strings.ToLower(role)
+			switch role {
+			case "admin", "viewer", "operator":
+				// allowed
+			default:
+				log.Printf("[middleware] rejected unknown role: %s", role)
+				http.Error(w, `{"error":"forbidden","message":"unknown role"}`, http.StatusForbidden)
+				return
+			}
+
+			log.Printf("[middleware] %s %s role=%s session=%s",
+				r.Method, r.URL.Path, role, extractSessionID(r))
+
+			next.ServeHTTP(w, r)
+		})
 	}
 }
 

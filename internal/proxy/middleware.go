@@ -11,7 +11,7 @@ func (s *Server) roleMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		role := r.Header.Get("X-User-Role")
 		if role == "" {
-			role = "viewer" // default to most restrictive
+			role = s.config.DefaultRole
 			r.Header.Set("X-User-Role", role)
 		}
 

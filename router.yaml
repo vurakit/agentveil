@@ -7,7 +7,7 @@ providers:
   - name: anthropic
     base_url: https://api.anthropic.com
     api_key: $ANTHROPIC_API_KEY
-    auth_method: header
+    auth_method: x-api-key
     model: claude-sonnet-4-20250514
     priority: 1
     enabled: true

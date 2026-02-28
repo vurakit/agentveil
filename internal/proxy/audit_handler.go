@@ -13,6 +13,15 @@ type AuditRequest struct {
 	Content string `json:"content"`
 }
 
+// HandleAudit returns an http.HandlerFunc for POST /audit (standalone, no Server needed).
+// Used in router mode where /audit is registered outside the Server handler chain.
+func HandleAudit() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		srv := &Server{}
+		srv.handleAudit(w, r)
+	}
+}
+
 // handleAudit handles POST /audit to analyze skill.md content
 func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

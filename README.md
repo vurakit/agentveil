@@ -41,13 +41,13 @@
 1. You send:      "CCCD cua toi la 012345678901, email thinh@gmail.com"
                               │
                               ▼
-2. Proxy anonymizes:  "CCCD cua toi la [CCCD_a1b2], email [EMAIL_c3d4]"
-   Vault stores:       CCCD_a1b2 → 012345678901 (encrypted, 30min TTL)
-                       EMAIL_c3d4 → thinh@gmail.com
+2. Proxy anonymizes:  "CCCD cua toi la [CCCD_1], email [EMAIL_1]"
+   Vault stores:       [CCCD_1] → 012345678901 (encrypted, 30min TTL)
+                       [EMAIL_1] → thinh@gmail.com
                               │
                               ▼
-3. LLM receives:      "CCCD cua toi la [CCCD_a1b2], email [EMAIL_c3d4]"
-   LLM responds:      "Da nhan CCCD [CCCD_a1b2] va email [EMAIL_c3d4]"
+3. LLM receives:      "CCCD cua toi la [CCCD_1], email [EMAIL_1]"
+   LLM responds:      "Da nhan CCCD [CCCD_1] va email [EMAIL_1]"
                               │
                               ▼
 4. Proxy rehydrates:  "Da nhan CCCD 012345678901 va email thinh@gmail.com"
@@ -117,25 +117,30 @@
 
 ## Quick Start
 
-### Option 1: One-Command Setup (recommended)
+### Option 1: Native Setup (recommended)
 
 ```bash
 git clone https://github.com/vurakit/agentveil.git && cd agentveil
 ./setup.sh
+source ~/.zshrc   # apply env vars
 ```
 
 This will:
-1. Generate `.env` with a random encryption key
-2. Start proxy + Redis via Docker Compose
-3. Inject environment variables into your shell profile
-4. Health-check the proxy
+1. Build the proxy binary natively (requires Go)
+2. Install to `~/.agentveil/` with config and router
+3. Start Redis (via Docker or Homebrew)
+4. Register as a background service (launchd on macOS, systemd on Linux)
+5. Inject environment variables into your shell profile
+
+The proxy auto-starts on login and auto-restarts on crash.
 
 ```bash
-# Check status anytime
-./setup.sh --status
-
-# Uninstall
-./setup.sh --uninstall
+./setup.sh --status     # Check all components
+./setup.sh --restart    # Rebuild + restart (after code changes)
+./setup.sh --logs       # Tail proxy logs
+./setup.sh --stop       # Stop proxy
+./setup.sh --start      # Start proxy
+./setup.sh --uninstall  # Remove completely
 ```
 
 ### Option 2: Docker Compose
@@ -180,7 +185,7 @@ go install github.com/vurakit/agentveil/cmd/vura@latest
 
 ```bash
 # Claude Code
-ANTHROPIC_BASE_URL=http://localhost:8080/v1 claude
+ANTHROPIC_BASE_URL=http://localhost:8080 claude
 
 # Cursor / Aider / any OpenAI-compatible tool
 OPENAI_BASE_URL=http://localhost:8080/v1 aider
@@ -318,6 +323,7 @@ All configuration is via environment variables. See [`.env.example`](.env.exampl
 | `VEIL_API_KEYS` | _(empty)_ | Comma-separated API keys for client authentication |
 | `VEIL_RATE_LIMIT` | `60` | Requests per minute per IP |
 | `VEIL_RATE_BURST` | `20` | Rate limit burst size |
+| `VEIL_DEFAULT_ROLE` | `viewer` | Default role when `X-User-Role` header is absent (`admin` / `viewer` / `operator`) |
 | `VEIL_ROUTER_CONFIG` | _(empty)_ | Path to router YAML for multi-provider mode |
 | `VEIL_DISCORD_WEBHOOK_URL` | _(empty)_ | Discord webhook URL for notifications |
 | `VEIL_SLACK_WEBHOOK_URL` | _(empty)_ | Slack webhook URL for notifications |
@@ -335,7 +341,7 @@ providers:
   - name: anthropic
     base_url: https://api.anthropic.com
     api_key: $ANTHROPIC_API_KEY       # env var reference
-    auth_method: header
+    auth_method: x-api-key            # Anthropic uses x-api-key header
     priority: 1
     enabled: true
 

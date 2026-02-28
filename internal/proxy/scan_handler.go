@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+
+	"github.com/vurakit/agentveil/internal/detector"
 )
 
 // ScanRequest is the JSON body for PII scan requests
@@ -24,6 +26,15 @@ type ScanEntity struct {
 type ScanResponse struct {
 	Found    bool         `json:"found"`
 	Entities []ScanEntity `json:"entities"`
+}
+
+// HandleScan returns an http.HandlerFunc for POST /scan (standalone, no Server needed).
+// Used in router mode where /scan is registered outside the Server handler chain.
+func HandleScan(det *detector.Detector) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		srv := &Server{detector: det}
+		srv.handleScan(w, r)
+	}
 }
 
 // handleScan handles POST /scan to detect PII in text

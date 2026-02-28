@@ -32,6 +32,7 @@ func main() {
 	redisAddr := envOr("REDIS_ADDR", "localhost:6379")
 	redisPassword := envOr("REDIS_PASSWORD", "")
 	encryptionKey := envOr("VEIL_ENCRYPTION_KEY", "") // 64 hex chars = 32 bytes
+	defaultRole := envOr("VEIL_DEFAULT_ROLE", "viewer")
 	tlsCert := envOr("TLS_CERT", "")
 	tlsKey := envOr("TLS_KEY", "")
 
@@ -113,8 +114,9 @@ func main() {
 			os.Exit(1)
 		}
 
-		// Wire PII anonymization into the router's request modifier
+		// Wire PII anonymization into the router
 		rt.SetRequestModifier(proxy.AnonymizeRequest(det, v, dispatcher))
+		rt.SetResponseModifier(proxy.RehydrateResponse(v, defaultRole))
 
 		// Build mux with utility endpoints + router as catch-all
 		mux := http.NewServeMux()
@@ -125,7 +127,13 @@ func main() {
 		mux.HandleFunc("/health", healthHandler)
 		mux.HandleFunc("/healthz", healthHandler)
 
+		// Expose /scan and /audit without auth (same as single-target mode)
+		mux.HandleFunc("/scan", proxy.HandleScan(det))
+		mux.HandleFunc("/audit", proxy.HandleAudit())
+
+		// Chain: auth → role → router
 		var routerHandler http.Handler = rt
+		routerHandler = proxy.RoleMiddleware(defaultRole)(routerHandler)
 		if authMgr != nil {
 			routerHandler = authMgr.Middleware(routerHandler)
 		}
@@ -141,7 +149,7 @@ func main() {
 			opts = append(opts, proxy.WithWebhook(dispatcher))
 		}
 		srv, err := proxy.New(
-			proxy.Config{TargetURL: targetURL},
+			proxy.Config{TargetURL: targetURL, DefaultRole: defaultRole},
 			det, v,
 			opts...,
 		)
