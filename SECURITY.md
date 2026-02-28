@@ -11,7 +11,7 @@
 
 **Please do NOT report security vulnerabilities through public GitHub issues.**
 
-Instead, please report them via email to: **security@vura.io**
+Instead, please report them via email to: **security@agentveil.sh**
 
 Include:
 - Description of the vulnerability
