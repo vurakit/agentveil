@@ -15,7 +15,9 @@ import (
 	"github.com/vurakit/agentveil/internal/logging"
 	"github.com/vurakit/agentveil/internal/proxy"
 	"github.com/vurakit/agentveil/internal/ratelimit"
+	"github.com/vurakit/agentveil/internal/router"
 	"github.com/vurakit/agentveil/internal/vault"
+	"github.com/vurakit/agentveil/internal/webhook"
 )
 
 func main() {
@@ -74,19 +76,82 @@ func main() {
 	rl := ratelimit.New(ratelimit.DefaultConfig())
 	defer rl.Close()
 
-	// Build proxy with options
-	srv, err := proxy.New(
-		proxy.Config{TargetURL: targetURL},
-		det, v,
-		proxy.WithAuth(authMgr),
-	)
-	if err != nil {
-		logger.Error("failed to create proxy", "error", err)
-		os.Exit(1)
+	// Webhook dispatcher
+	var dispatcher *webhook.Dispatcher
+	discordURL := envOr("VEIL_DISCORD_WEBHOOK_URL", "")
+	slackURL := envOr("VEIL_SLACK_WEBHOOK_URL", "")
+	if discordURL != "" || slackURL != "" {
+		whCfg := webhook.DefaultConfig()
+		if discordURL != "" {
+			whCfg.Discord = &webhook.DiscordConfig{WebhookURL: discordURL}
+			logger.Info("discord webhook enabled")
+		}
+		if slackURL != "" {
+			whCfg.Slack = &webhook.SlackConfig{WebhookURL: slackURL}
+			logger.Info("slack webhook enabled")
+		}
+		dispatcher = webhook.NewDispatcher(whCfg)
+		defer dispatcher.Close()
 	}
 
-	// Wrap handler with rate limiter
-	handler := rl.Middleware(srv.Handler())
+	// Build handler: router mode or single-target mode
+	routerConfig := envOr("VEIL_ROUTER_CONFIG", "")
+
+	var handler http.Handler
+
+	if routerConfig != "" {
+		// Multi-provider router mode
+		cfg, err := router.LoadConfig(routerConfig)
+		if err != nil {
+			logger.Error("failed to load router config", "path", routerConfig, "error", err)
+			os.Exit(1)
+		}
+
+		rt, err := router.New(cfg)
+		if err != nil {
+			logger.Error("failed to create router", "error", err)
+			os.Exit(1)
+		}
+
+		// Wire PII anonymization into the router's request modifier
+		rt.SetRequestModifier(proxy.AnonymizeRequest(det, v, dispatcher))
+
+		// Build mux with utility endpoints + router as catch-all
+		mux := http.NewServeMux()
+		healthHandler := func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"status":"ok"}`))
+		}
+		mux.HandleFunc("/health", healthHandler)
+		mux.HandleFunc("/healthz", healthHandler)
+
+		var routerHandler http.Handler = rt
+		if authMgr != nil {
+			routerHandler = authMgr.Middleware(routerHandler)
+		}
+		mux.Handle("/", routerHandler)
+
+		handler = rl.Middleware(mux)
+
+		logger.Info("router mode enabled", "config", routerConfig, "providers", rt.GetProviders())
+	} else {
+		// Single-target proxy mode (original behavior)
+		opts := []proxy.Option{proxy.WithAuth(authMgr)}
+		if dispatcher != nil {
+			opts = append(opts, proxy.WithWebhook(dispatcher))
+		}
+		srv, err := proxy.New(
+			proxy.Config{TargetURL: targetURL},
+			det, v,
+			opts...,
+		)
+		if err != nil {
+			logger.Error("failed to create proxy", "error", err)
+			os.Exit(1)
+		}
+
+		handler = rl.Middleware(srv.Handler())
+	}
 
 	// HTTP server
 	httpServer := &http.Server{
@@ -102,7 +167,11 @@ func main() {
 	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		logger.Info("proxy listening", "addr", listenAddr, "target", targetURL)
+		if routerConfig != "" {
+			logger.Info("proxy listening (router mode)", "addr", listenAddr)
+		} else {
+			logger.Info("proxy listening", "addr", listenAddr, "target", targetURL)
+		}
 		if tlsCert != "" && tlsKey != "" {
 			logger.Info("TLS enabled", "cert", tlsCert)
 			if err := httpServer.ListenAndServeTLS(tlsCert, tlsKey); err != nil && err != http.ErrServerClosed {

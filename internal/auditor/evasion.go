@@ -12,6 +12,12 @@ import (
 var (
 	base64Pattern = regexp.MustCompile(`[A-Za-z0-9+/]{20,}={0,2}`)
 	hexPattern    = regexp.MustCompile(`(?i)(?:0x|\\x)[0-9a-f]{2}(?:[0-9a-f]{2}){3,}`)
+
+	// URL detection patterns
+	urlPattern          = regexp.MustCompile(`https?://[^\s"'<>\])+]+`)
+	urlShortenerPattern = regexp.MustCompile(`(?i)https?://(?:bit\.ly|tinyurl\.com|t\.co|goo\.gl|is\.gd|rb\.gy|short\.io|cutt\.ly|ow\.ly)/\S+`)
+	ipURLPattern        = regexp.MustCompile(`https?://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?::\d+)?/?\S*`)
+	hexEncodedURL       = regexp.MustCompile(`(?i)https?://[^\s]*(?:%[0-9a-f]{2}){3,}[^\s]*`)
 )
 
 // DeobfuscateLine attempts to reveal hidden instructions in a line
@@ -115,4 +121,48 @@ func isPrintable(s string) bool {
 		}
 	}
 	return float64(printable)/float64(len([]rune(s))) > 0.8
+}
+
+// SuspiciousURL represents a URL found with a suspicious trait
+type SuspiciousURL struct {
+	URL    string
+	Line   int
+	Reason string
+}
+
+// ExtractSuspiciousURLs scans content for obfuscated or suspicious URLs
+func ExtractSuspiciousURLs(content string) []SuspiciousURL {
+	lines := strings.Split(content, "\n")
+	var results []SuspiciousURL
+
+	for lineNum, line := range lines {
+		// Check URL shorteners
+		for _, match := range urlShortenerPattern.FindAllString(line, -1) {
+			results = append(results, SuspiciousURL{
+				URL:    match,
+				Line:   lineNum + 1,
+				Reason: "URL shortener — có thể ẩn đích thực",
+			})
+		}
+
+		// Check IP-based URLs (not domain)
+		for _, match := range ipURLPattern.FindAllString(line, -1) {
+			results = append(results, SuspiciousURL{
+				URL:    match,
+				Line:   lineNum + 1,
+				Reason: "URL dùng IP thay vì domain — có thể tránh blocklist",
+			})
+		}
+
+		// Check hex-encoded URLs
+		for _, match := range hexEncodedURL.FindAllString(line, -1) {
+			results = append(results, SuspiciousURL{
+				URL:    match,
+				Line:   lineNum + 1,
+				Reason: "URL chứa hex encoding — có thể obfuscate đường dẫn",
+			})
+		}
+	}
+
+	return results
 }

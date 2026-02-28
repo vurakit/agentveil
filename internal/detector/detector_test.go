@@ -287,8 +287,8 @@ func TestScan_CreditCard(t *testing.T) {
 		input  string
 		expect int
 	}{
-		{"valid Visa", "Card: 4111111111111111", 1},      // passes Luhn
-		{"invalid Luhn", "Card: 4111111111111112", 0},     // fails Luhn
+		{"valid Visa", "Card: 4111111111111111", 1},   // passes Luhn
+		{"invalid Luhn", "Card: 4111111111111112", 0}, // fails Luhn
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -393,11 +393,11 @@ func TestLuhnCheck(t *testing.T) {
 		number string
 		valid  bool
 	}{
-		{"4111111111111111", true},  // Visa test
-		{"5500000000000004", true},  // MC test
+		{"4111111111111111", true}, // Visa test
+		{"5500000000000004", true}, // MC test
 		{"4111111111111112", false},
-		{"0000000000000000", true},  // edge case
-		{"123", false},              // too short
+		{"0000000000000000", true}, // edge case
+		{"123", false},             // too short
 	}
 	for _, tt := range tests {
 		got := pii.LuhnCheck(tt.number)
@@ -405,6 +405,255 @@ func TestLuhnCheck(t *testing.T) {
 			t.Errorf("LuhnCheck(%s) = %v, want %v", tt.number, got, tt.valid)
 		}
 	}
+}
+
+// === Secret & Credential Detection Tests ===
+
+func TestScan_SecretKeys(t *testing.T) {
+	d := New()
+
+	tests := []struct {
+		name   string
+		input  string
+		cat    pii.Category
+		expect int
+	}{
+		{
+			"OpenAI project key",
+			"OPENAI_API_KEY=sk-proj-abcdefghijklmnopqrstuvwxyz1234567890ABCDEF",
+			pii.CatAPIKeyOpenAI, 1,
+		},
+		{
+			"OpenAI legacy key",
+			"key: sk-abcdefghijklmnopqrstuvwxyz1234",
+			pii.CatAPIKeyOpenAI, 1,
+		},
+		{
+			"Anthropic key",
+			"ANTHROPIC_API_KEY=sk-ant-api03-abcdefghijklmnopqrstuvwxyz",
+			pii.CatAPIKeyAnthropic, 1,
+		},
+		{
+			"Google API key",
+			"GOOGLE_KEY=AIzaSyA1234567890abcdefghijklmnopqrstuv",
+			pii.CatAPIKeyGoogle, 1,
+		},
+		{
+			"AWS access key",
+			"AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE",
+			pii.CatAWSAccessKey, 1,
+		},
+		{
+			"AWS secret key",
+			"aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			pii.CatAWSSecretKey, 1,
+		},
+		{
+			"GitHub PAT",
+			"token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij",
+			pii.CatGitHubToken, 1,
+		},
+		{
+			"GitLab PAT",
+			"GITLAB_TOKEN=glpat-abcdefghijklmnopqrstuv",
+			pii.CatGitLabToken, 1,
+		},
+		{
+			"Slack bot token",
+			"SLACK_TOKEN=xoxb-123456789-abcdefghij",
+			pii.CatSlackToken, 1,
+		},
+		{
+			"Stripe secret key",
+			"STRIPE_KEY=sk_test_00000000000000000000",
+			pii.CatStripeKey, 1,
+		},
+		{
+			"Stripe publishable key",
+			"pk_test_00000000000000000000",
+			pii.CatStripeKey, 1,
+		},
+		{
+			"SendGrid key",
+			"SG.0000000000000000000000.0000000000000000000000000000000000000000000",
+			pii.CatSendGridKey, 1,
+		},
+		{
+			"Twilio key",
+			"TWILIO=SK00000000000000000000000000000000",
+			pii.CatTwilioKey, 1,
+		},
+		{
+			"NPM token",
+			"NPM_TOKEN=npm_abcdefghijklmnopqrstuv",
+			pii.CatNPMToken, 1,
+		},
+		{
+			"PyPI token",
+			"PYPI_TOKEN=pypi-abcdefghijklmnopqrstuv",
+			pii.CatPyPIToken, 1,
+		},
+		{
+			"Docker PAT",
+			"DOCKER=dckr_pat_abcdefghijklmnopqrstuv",
+			pii.CatDockerToken, 1,
+		},
+		{
+			"Hugging Face token",
+			"HF_TOKEN=hf_abcdefghijklmnopqrstuv",
+			pii.CatHuggingFace, 1,
+		},
+		{
+			"Replicate token",
+			"REPLICATE=r8_abcdefghijklmnopqrstuv",
+			pii.CatReplicateToken, 1,
+		},
+		{
+			"PEM private key",
+			"-----BEGIN RSA PRIVATE KEY-----",
+			pii.CatPEMPrivateKey, 1,
+		},
+		{
+			"PEM EC private key",
+			"-----BEGIN EC PRIVATE KEY-----",
+			pii.CatPEMPrivateKey, 1,
+		},
+		{
+			"JWT token",
+			"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0.Gfx6VO9tcxwk6xqx9yYzSfebfeakZp5JYIgP_edcw_A",
+			pii.CatJWT, 1,
+		},
+		{
+			"MongoDB connection string",
+			"mongodb://admin:secretpass@db.example.com:27017/mydb",
+			pii.CatConnectionStr, 1,
+		},
+		{
+			"PostgreSQL connection string",
+			"postgres://user:password123@localhost:5432/mydb",
+			pii.CatConnectionStr, 1,
+		},
+		{
+			"Redis connection string",
+			"redis://default:mypassword@redis.example.com:6379",
+			pii.CatConnectionStr, 1,
+		},
+		{
+			"Generic password",
+			"PASSWORD=mysupersecretpassword123",
+			pii.CatGenericSecret, 1,
+		},
+		{
+			"Generic secret with quotes",
+			`SECRET="my-secret-value-here"`,
+			pii.CatGenericSecret, 1,
+		},
+		{
+			"Encryption key env var",
+			"ENCRYPTION_KEY=3783d5176a38886071bf04296c8106524899db278bcfed69352393c7d64f32c9",
+			pii.CatHexSecret, 1,
+		},
+		{
+			"not a secret - short value",
+			"PASSWORD=short",
+			pii.CatGenericSecret, 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d.ResetCounters()
+			matches := filterByCategory(d.Scan(tt.input), tt.cat)
+			if len(matches) != tt.expect {
+				all := d.Scan(tt.input)
+				t.Errorf("expected %d %s matches, got %d (all matches: %v)",
+					tt.expect, tt.cat, len(matches), all)
+			}
+		})
+	}
+}
+
+func TestScan_SecretsDisabled(t *testing.T) {
+	d := NewWithConfig(Config{
+		Sensitivity:   SensitivityMedium,
+		EnableVietnam: true,
+		EnableIntl:    true,
+		EnableSecrets: false,
+	})
+
+	secrets := []string{
+		"sk-ant-api03-abcdefghijklmnopqrstuvwxyz",
+		"ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij",
+		"-----BEGIN RSA PRIVATE KEY-----",
+		"PASSWORD=mysupersecretpassword123",
+	}
+
+	for _, s := range secrets {
+		matches := d.Scan(s)
+		for _, m := range matches {
+			cat := string(m.Category)
+			if len(cat) > 7 && cat[:7] == "SECRET_" {
+				t.Errorf("with EnableSecrets=false, should not detect %s in %q", m.Category, s)
+			}
+		}
+	}
+}
+
+func TestAnonymize_WithSecrets(t *testing.T) {
+	d := New()
+
+	input := "Config: ANTHROPIC_API_KEY=sk-ant-api03-abcdefghijklmnopqrstuvwxyz and DB=postgres://admin:secret@db:5432/app"
+	anonymized, mapping := d.Anonymize(input)
+
+	// Original secrets must not appear in full
+	if containsAny(anonymized, "sk-ant-api03-abcdefghijklmnopqrstuvwxyz") {
+		t.Errorf("anonymized text still contains full Anthropic key: %s", anonymized)
+	}
+	if containsAny(anonymized, "postgres://admin:secret@db:5432/app") {
+		t.Errorf("anonymized text still contains full connection string: %s", anonymized)
+	}
+
+	// Mapping should exist
+	if len(mapping) == 0 {
+		t.Fatal("mapping is empty, expected secret entries")
+	}
+
+	// Secrets should be partially masked (contain * characters)
+	for token, original := range mapping {
+		if pii.IsSecretCategory(pii.CatAPIKeyAnthropic) && original == "sk-ant-api03-abcdefghijklmnopqrstuvwxyz" {
+			if !containsAny(token, "*") {
+				t.Errorf("expected partial mask with * for Anthropic key, got: %s", token)
+			}
+			// Should still show prefix
+			if !containsAny(token, "sk-ant") {
+				t.Errorf("partial mask should show prefix, got: %s", token)
+			}
+		}
+	}
+}
+
+func TestAnonymize_SecretPartialMask(t *testing.T) {
+	d := New()
+
+	input := "ENCRYPTION_KEY=3783d5176a38886071bf04296c8106524899db278bcfed69352393c7d64f32c9"
+	anonymized, _ := d.Anonymize(input)
+
+	// Full hex value must not appear
+	if containsAny(anonymized, "3783d5176a38886071bf04296c8106524899db278bcfed69352393c7d64f32c9") {
+		t.Errorf("anonymized text still contains full hex key: %s", anonymized)
+	}
+
+	// Partial prefix should be visible
+	if !containsAny(anonymized, "3783d5") {
+		t.Errorf("expected visible prefix in partial mask, got: %s", anonymized)
+	}
+
+	// Should contain mask characters
+	if !containsAny(anonymized, "***") {
+		t.Errorf("expected * mask characters, got: %s", anonymized)
+	}
+
+	t.Logf("masked output: %s", anonymized)
 }
 
 // BenchmarkScan benchmarks detector performance

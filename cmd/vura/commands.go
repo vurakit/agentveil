@@ -1,13 +1,19 @@
 package main
 
 import (
+	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/vurakit/agentveil/internal/auditor"
 	"github.com/vurakit/agentveil/internal/compliance"
@@ -46,7 +52,9 @@ func handleWrap(args []string) {
 	}
 
 	proxyURL := envOr("VEIL_PROXY_URL", "http://localhost:8080")
-	baseURL := proxyURL + "/v1"
+	openaiBase := proxyURL + "/v1"    // OpenAI SDK expects base URL with /v1
+	anthropicBase := proxyURL         // Anthropic SDK appends /v1/messages itself
+	geminiBase := proxyURL + "/gemini" // Gemini route prefix
 
 	// Detect the tool and set appropriate env vars
 	toolName := strings.ToLower(cmdArgs[0])
@@ -54,21 +62,25 @@ func handleWrap(args []string) {
 
 	switch {
 	case strings.Contains(toolName, "claude"):
-		env = setEnv(env, "ANTHROPIC_BASE_URL", baseURL)
-		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping Claude via %s\n", baseURL)
+		env = setEnv(env, "ANTHROPIC_BASE_URL", anthropicBase)
+		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping Claude via %s\n", anthropicBase)
 	case strings.Contains(toolName, "cursor"):
-		env = setEnv(env, "OPENAI_BASE_URL", baseURL)
-		env = setEnv(env, "ANTHROPIC_BASE_URL", baseURL)
-		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping Cursor via %s\n", baseURL)
+		env = setEnv(env, "OPENAI_BASE_URL", openaiBase)
+		env = setEnv(env, "ANTHROPIC_BASE_URL", anthropicBase)
+		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping Cursor via %s\n", proxyURL)
 	case strings.Contains(toolName, "aider"):
-		env = setEnv(env, "OPENAI_API_BASE", baseURL)
-		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping Aider via %s\n", baseURL)
+		env = setEnv(env, "OPENAI_API_BASE", openaiBase)
+		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping Aider via %s\n", openaiBase)
+	case strings.Contains(toolName, "gemini"):
+		env = setEnv(env, "GEMINI_API_BASE", geminiBase)
+		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping Gemini via %s\n", geminiBase)
 	default:
 		// Generic: set all common env vars
-		env = setEnv(env, "OPENAI_BASE_URL", baseURL)
-		env = setEnv(env, "OPENAI_API_BASE", baseURL)
-		env = setEnv(env, "ANTHROPIC_BASE_URL", baseURL)
-		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping %s via %s\n", cmdArgs[0], baseURL)
+		env = setEnv(env, "OPENAI_BASE_URL", openaiBase)
+		env = setEnv(env, "OPENAI_API_BASE", openaiBase)
+		env = setEnv(env, "ANTHROPIC_BASE_URL", anthropicBase)
+		env = setEnv(env, "GEMINI_API_BASE", geminiBase)
+		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping %s via %s\n", cmdArgs[0], proxyURL)
 	}
 
 	// Pass through Agent Veil API key if set
@@ -389,4 +401,336 @@ func maskIfSet(key string) string {
 		return "****"
 	}
 	return v[:4] + "..." + v[len(v)-4:]
+}
+
+// ─── Setup command ────────────────────────────────────────────────
+
+const (
+	markerStart = "# >>> Agent Veil >>>"
+	markerEnd   = "# <<< Agent Veil <<<"
+	defaultProxy = "http://localhost:8080"
+)
+
+// handleSetup orchestrates one-command setup/teardown of Agent Veil.
+func handleSetup(args []string) {
+	if len(args) > 0 {
+		switch args[0] {
+		case "--undo", "undo":
+			setupUninstall()
+			return
+		case "--status", "status":
+			setupStatus()
+			return
+		}
+	}
+	setupInstall()
+}
+
+func setupInstall() {
+	proxyURL := envOr("VEIL_PROXY_URL", defaultProxy)
+
+	// 1. Pre-flight
+	fmt.Print("\n=== Agent Veil Setup ===\n\n")
+	if err := checkCommand("docker"); err != nil {
+		fmt.Fprintf(os.Stderr, "[fail] docker not found. Install: https://docs.docker.com/get-docker/\n")
+		os.Exit(1)
+	}
+	if err := checkDockerCompose(); err != nil {
+		fmt.Fprintf(os.Stderr, "[fail] docker compose not found. Install Docker Desktop or the compose plugin.\n")
+		os.Exit(1)
+	}
+	fmt.Println("[ok]  docker and docker compose found")
+
+	// 2. Generate .env
+	if err := setupGenerateEnv(); err != nil {
+		fmt.Fprintf(os.Stderr, "[fail] %v\n", err)
+		os.Exit(1)
+	}
+
+	// 3. docker compose up
+	fmt.Println("[info] Building and starting containers...")
+	cmd := exec.Command("docker", "compose", "up", "-d", "--build")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "[fail] docker compose up failed: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("[ok]  Containers started")
+
+	// 4. Health check
+	if err := waitForProxy(proxyURL, 60*time.Second); err != nil {
+		fmt.Fprintf(os.Stderr, "[fail] %v\n", err)
+		fmt.Fprintln(os.Stderr, "  Check logs: docker compose logs proxy")
+		os.Exit(1)
+	}
+
+	// 5. Inject shell env vars
+	profile := detectShellProfile()
+	if err := injectShellEnv(profile, proxyURL); err != nil {
+		fmt.Fprintf(os.Stderr, "[warn] Could not update shell profile: %v\n", err)
+	}
+
+	// 6. Print success
+	fmt.Printf("\n=== Agent Veil is ready! ===\n\n")
+	fmt.Println("  All AI tools will now route through the security proxy.")
+	fmt.Printf("\n  To apply in your current terminal:\n    source %s\n\n", profile)
+	fmt.Println("  Test commands:")
+	fmt.Printf("    curl -s %s/health\n", proxyURL)
+	fmt.Println("    agentveil setup --status")
+	fmt.Println("\n  Uninstall:")
+	fmt.Println("    agentveil setup --undo")
+	fmt.Println()
+}
+
+func setupUninstall() {
+	fmt.Println("[info] Uninstalling Agent Veil...")
+
+	// Remove env block from shell profile
+	profile := detectShellProfile()
+	if removed, err := removeShellEnv(profile); err != nil {
+		fmt.Fprintf(os.Stderr, "[warn] %v\n", err)
+	} else if removed {
+		fmt.Printf("[ok]  Removed env vars from %s\n", profile)
+	} else {
+		fmt.Printf("[info] No env vars found in %s\n", profile)
+	}
+
+	// docker compose down
+	cmd := exec.Command("docker", "compose", "down", "-v")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	_ = cmd.Run()
+	fmt.Println("[ok]  Containers stopped and volumes removed")
+
+	// Remove .env
+	if err := os.Remove(".env"); err == nil {
+		fmt.Println("[ok]  Removed .env")
+	}
+
+	fmt.Printf("\nAgent Veil uninstalled.\n  Restart your shell or run: source %s\n", profile)
+}
+
+func setupStatus() {
+	proxyURL := envOr("VEIL_PROXY_URL", defaultProxy)
+	fmt.Print("=== Agent Veil Status ===\n\n")
+
+	// Proxy health
+	resp, err := http.Get(proxyURL + "/health")
+	if err == nil && resp.StatusCode == http.StatusOK {
+		resp.Body.Close()
+		fmt.Printf("[ok]  Proxy:           healthy (%s)\n", proxyURL)
+	} else {
+		fmt.Printf("[fail] Proxy:          unreachable (%s)\n", proxyURL)
+	}
+
+	// Docker containers
+	out, err := exec.Command("docker", "compose", "ps", "--status", "running", "--format", "{{.Name}}").Output()
+	if err == nil {
+		lines := strings.TrimSpace(string(out))
+		if strings.Contains(lines, "proxy") {
+			fmt.Println("[ok]  Container proxy: running")
+		} else {
+			fmt.Println("[fail] Container proxy: not running")
+		}
+		if strings.Contains(lines, "redis") {
+			fmt.Println("[ok]  Container redis: running")
+		} else {
+			fmt.Println("[fail] Container redis: not running")
+		}
+	}
+
+	// Shell profile
+	profile := detectShellProfile()
+	if profileHasMarker(profile) {
+		fmt.Printf("[ok]  Shell profile:   configured (%s)\n", profile)
+	} else {
+		fmt.Printf("[warn] Shell profile:  not configured (%s)\n", profile)
+	}
+
+	// Current env
+	fmt.Println("\n  Current session env:")
+	fmt.Printf("    ANTHROPIC_BASE_URL=%s\n", envOr("ANTHROPIC_BASE_URL", "<not set>"))
+	fmt.Printf("    OPENAI_API_BASE=%s\n", envOr("OPENAI_API_BASE", "<not set>"))
+	fmt.Printf("    OPENAI_BASE_URL=%s\n", envOr("OPENAI_BASE_URL", "<not set>"))
+	fmt.Printf("    GEMINI_API_BASE=%s\n", envOr("GEMINI_API_BASE", "<not set>"))
+
+	// .env
+	if _, err := os.Stat(".env"); err == nil {
+		fmt.Println("\n[ok]  .env file:       present")
+	} else {
+		fmt.Println("\n[warn] .env file:      missing")
+	}
+	fmt.Println()
+}
+
+// ─── Setup helpers ────────────────────────────────────────────────
+
+func checkCommand(name string) error {
+	_, err := exec.LookPath(name)
+	return err
+}
+
+func checkDockerCompose() error {
+	return exec.Command("docker", "compose", "version").Run()
+}
+
+func setupGenerateEnv() error {
+	if _, err := os.Stat(".env"); err == nil {
+		fmt.Println("[info] .env already exists, keeping it")
+		return nil
+	}
+
+	example, err := os.ReadFile(".env.example")
+	if err != nil {
+		return fmt.Errorf(".env.example not found — are you in the agentveil repo root?")
+	}
+
+	content := string(example)
+
+	// Generate encryption key
+	keyBytes := make([]byte, 32)
+	if _, err := rand.Read(keyBytes); err != nil {
+		return fmt.Errorf("failed to generate encryption key: %w", err)
+	}
+	key := hex.EncodeToString(keyBytes)
+
+	content = replaceEnvLine(content, "VEIL_ENCRYPTION_KEY", key)
+	content = replaceEnvLine(content, "TARGET_URL", "https://api.anthropic.com")
+
+	if err := os.WriteFile(".env", []byte(content), 0600); err != nil {
+		return fmt.Errorf("failed to write .env: %w", err)
+	}
+	fmt.Println("[ok]  Generated .env with encryption key")
+	return nil
+}
+
+func replaceEnvLine(content, key, value string) string {
+	lines := strings.Split(content, "\n")
+	prefix := key + "="
+	for i, line := range lines {
+		if strings.HasPrefix(line, prefix) {
+			lines[i] = prefix + value
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func waitForProxy(proxyURL string, timeout time.Duration) error {
+	fmt.Printf("[info] Waiting for proxy to be healthy (max %ds)...\n", int(timeout.Seconds()))
+	deadline := time.Now().Add(timeout)
+	client := &http.Client{Timeout: 2 * time.Second}
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(proxyURL + "/health")
+		if err == nil && resp.StatusCode == http.StatusOK {
+			resp.Body.Close()
+			fmt.Println("[ok]  Proxy is healthy")
+			return nil
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return fmt.Errorf("proxy did not become healthy within %ds", int(timeout.Seconds()))
+}
+
+func detectShellProfile() string {
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/bash"
+	}
+	name := filepath.Base(shell)
+	home, _ := os.UserHomeDir()
+
+	switch name {
+	case "zsh":
+		return filepath.Join(home, ".zshrc")
+	case "bash":
+		bp := filepath.Join(home, ".bash_profile")
+		if _, err := os.Stat(bp); err == nil {
+			return bp
+		}
+		return filepath.Join(home, ".bashrc")
+	case "fish":
+		return filepath.Join(home, ".config", "fish", "config.fish")
+	default:
+		return filepath.Join(home, ".profile")
+	}
+}
+
+func profileHasMarker(profile string) bool {
+	data, err := os.ReadFile(profile)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(data), markerStart)
+}
+
+func injectShellEnv(profile, proxyURL string) error {
+	if profileHasMarker(profile) {
+		fmt.Printf("[info] Shell env vars already in %s, skipping\n", profile)
+		return nil
+	}
+
+	shell := filepath.Base(os.Getenv("SHELL"))
+	var block string
+	if shell == "fish" {
+		block = fmt.Sprintf("\n%s\nset -gx ANTHROPIC_BASE_URL %s\nset -gx OPENAI_API_BASE %s/v1\nset -gx OPENAI_BASE_URL %s/v1\nset -gx GEMINI_API_BASE %s/gemini\n%s\n",
+			markerStart, proxyURL, proxyURL, proxyURL, proxyURL, markerEnd)
+	} else {
+		block = fmt.Sprintf("\n%s\nexport ANTHROPIC_BASE_URL=%s\nexport OPENAI_API_BASE=%s/v1\nexport OPENAI_BASE_URL=%s/v1\nexport GEMINI_API_BASE=%s/gemini\n%s\n",
+			markerStart, proxyURL, proxyURL, proxyURL, proxyURL, markerEnd)
+	}
+
+	f, err := os.OpenFile(profile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(block); err != nil {
+		return err
+	}
+	fmt.Printf("[ok]  Added env vars to %s\n", profile)
+	return nil
+}
+
+func removeShellEnv(profile string) (bool, error) {
+	data, err := os.ReadFile(profile)
+	if err != nil {
+		return false, nil // file doesn't exist, nothing to remove
+	}
+
+	content := string(data)
+	if !strings.Contains(content, markerStart) {
+		return false, nil
+	}
+
+	// Remove the marker block line by line
+	var result []string
+	inBlock := false
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.TrimSpace(line) == markerStart {
+			inBlock = true
+			continue
+		}
+		if strings.TrimSpace(line) == markerEnd {
+			inBlock = false
+			continue
+		}
+		if !inBlock {
+			result = append(result, line)
+		}
+	}
+
+	// Trim trailing empty lines
+	for len(result) > 0 && strings.TrimSpace(result[len(result)-1]) == "" {
+		result = result[:len(result)-1]
+	}
+
+	output := strings.Join(result, "\n") + "\n"
+	if err := os.WriteFile(profile, []byte(output), 0644); err != nil {
+		return false, err
+	}
+	return true, nil
 }

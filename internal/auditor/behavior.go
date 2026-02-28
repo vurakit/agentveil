@@ -19,6 +19,8 @@ const (
 	ActionDeleteFile  ActionType = "delete_file"
 	ActionExecCode    ActionType = "exec_code"
 	ActionAccessCreds ActionType = "access_creds"
+	ActionFetchURL    ActionType = "fetch_url"
+	ActionModifySkill ActionType = "modify_skill"
 )
 
 type actionPattern struct {
@@ -34,6 +36,8 @@ var actionPatterns = []actionPattern{
 	{ActionDeleteFile, regexp.MustCompile(`(?i)(?:delete|remove|rm|unlink|wipe)\s+(?:file|log|record|data)`)},
 	{ActionExecCode, regexp.MustCompile(`(?i)(?:execute|run|eval|spawn|shell|subprocess|os\.system|child_process)`)},
 	{ActionAccessCreds, regexp.MustCompile(`(?i)(?:password|secret|token|api.?key|credential|private.?key|ssh.?key)`)},
+	{ActionFetchURL, regexp.MustCompile(`(?i)(?:fetch|read|load|open|visit|follow|navigate|browse|retrieve|download)\s+(?:this\s+)?(?:url|link|https?://|website|page|site)`)},
+	{ActionModifySkill, regexp.MustCompile(`(?i)(?:delete|remove|modify|clear|overwrite|replace|strip|drop|edit|change)\s+(?:all\s+)?(?:skill|instruction|rule|guideline|system.?prompt|\.md|markdown)`)},
 }
 
 // DangerousChain defines a sequence of actions that indicates a threat
@@ -80,6 +84,28 @@ var dangerousChains = []DangerousChain{
 		Severity:    "critical",
 		Description: "Thực thi mã + kết nối mạng = nghi ngờ reverse shell",
 		Weight:      40,
+	},
+	// V3: Indirect prompt injection chains
+	{
+		Name:        "indirect_injection",
+		Sequence:    []ActionType{ActionFetchURL, ActionModifySkill},
+		Severity:    "critical",
+		Description: "Đọc URL rồi sửa skill = injection gián tiếp",
+		Weight:      45,
+	},
+	{
+		Name:        "url_data_exfil",
+		Sequence:    []ActionType{ActionFetchURL, ActionHTTPSend},
+		Severity:    "critical",
+		Description: "Đọc URL rồi gửi dữ liệu ra ngoài",
+		Weight:      40,
+	},
+	{
+		Name:        "skill_sabotage",
+		Sequence:    []ActionType{ActionModifySkill, ActionHTTPSend},
+		Severity:    "critical",
+		Description: "Xóa skill rồi gửi dữ liệu = phá hoại + rò rỉ",
+		Weight:      45,
 	},
 }
 

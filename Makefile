@@ -1,4 +1,4 @@
-.PHONY: build build-proxy build-cli test test-cover lint fmt run docker-build docker-up docker-down clean install help
+.PHONY: build build-proxy build-cli test test-cover test-component lint fmt run docker-build docker-up docker-down clean install help
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -s -w -X main.version=$(VERSION)
@@ -32,6 +32,10 @@ test-cover:
 	go tool cover -func=coverage.out | tail -1
 	@echo ""
 	@echo "To view HTML report: go tool cover -html=coverage.out"
+
+## test-component: Run Docker component tests (requires OPENROUTER_API_KEY)
+test-component:
+	@tests/component/run.sh
 
 ## lint: Run golangci-lint
 lint:

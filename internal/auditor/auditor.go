@@ -199,6 +199,35 @@ func defaultPatterns() []dangerousPattern {
 			Description: "Chia sẻ dữ liệu cá nhân cho bên thứ ba",
 			Weight:      25,
 		},
+		// V3: Indirect prompt injection patterns
+		{
+			Pattern:     regexp.MustCompile(`(?i)(?:read|fetch|load|open|visit|follow|navigate|go\s+to|click|browse|retrieve|download)\s+(?:this\s+)?(?:url|link|http|https|website|webpage|page|site)[\s:]*(?:https?://\S+)?`),
+			Severity:    "critical",
+			Category:    "url_fetch_injection",
+			Description: "Chỉ dẫn đọc/fetch URL/link ngoài trong skill — vector injection gián tiếp",
+			Weight:      35,
+		},
+		{
+			Pattern:     regexp.MustCompile(`(?i)(?:delete|remove|clear|wipe|overwrite|replace|modify|edit|change|strip|drop)\s+(?:all\s+)?(?:skill|instruction|rule|guideline|system\s+prompt|\.md|markdown)`),
+			Severity:    "critical",
+			Category:    "skill_tampering",
+			Description: "Chỉ dẫn xóa/sửa/bỏ skill hoặc file chỉ dẫn",
+			Weight:      40,
+		},
+		{
+			Pattern:     regexp.MustCompile(`(?i)(?:follow|execute|obey|comply|apply|use|adopt)\s+(?:the\s+)?(?:instructions?|commands?|directives?|guidance|content|steps?)\s+(?:from|in|at|on)\s+(?:the\s+)?(?:url|link|page|site|external|remote|http)`),
+			Severity:    "critical",
+			Category:    "indirect_injection",
+			Description: "Chỉ dẫn follow/execute instructions từ nguồn bên ngoài",
+			Weight:      40,
+		},
+		{
+			Pattern:     regexp.MustCompile(`(?i)(?:post|send|submit|forward|transmit|upload)\s+(?:all\s+)?(?:customer|client|user|khách\s*hàng|người\s*dùng)\s+(?:data|info|information|dữ\s*liệu|thông\s*tin)\s+(?:to|tới|đến)\s+(?:https?://\S+|external|outside|webhook|endpoint)`),
+			Severity:    "critical",
+			Category:    "data_post_external",
+			Description: "Chỉ dẫn POST/gửi data khách hàng ra endpoint cụ thể",
+			Weight:      40,
+		},
 	}
 }
 

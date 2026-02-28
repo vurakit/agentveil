@@ -12,6 +12,8 @@ type ProviderConfig struct {
 	Name       string `yaml:"name"`        // e.g. "openai", "anthropic", "gemini", "ollama"
 	BaseURL    string `yaml:"base_url"`    // e.g. "https://api.openai.com"
 	APIKey     string `yaml:"api_key"`     // provider API key (or env var reference $ENV_VAR)
+	AuthMethod string `yaml:"auth_method"` // "header" (default) or "query"
+	AuthParam  string `yaml:"auth_param"`  // query param name for auth_method=query (default "key")
 	Model      string `yaml:"model"`       // default model for this provider
 	Priority   int    `yaml:"priority"`    // lower = higher priority for fallback (1 = primary)
 	Weight     int    `yaml:"weight"`      // weight for weighted round-robin (higher = more traffic)
@@ -96,6 +98,12 @@ func ParseConfig(data string) (*RouterConfig, error) {
 		}
 		if p.TimeoutSec == 0 {
 			p.TimeoutSec = 30
+		}
+		if p.AuthMethod == "" {
+			p.AuthMethod = "header"
+		}
+		if p.AuthMethod == "query" && p.AuthParam == "" {
+			p.AuthParam = "key"
 		}
 	}
 

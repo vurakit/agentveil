@@ -3,11 +3,18 @@ services:
     build: .
     ports:
       - "8080:8080"
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - TARGET_URL=https://api.openai.com
+      - TARGET_URL=https://api.anthropic.com
       - LISTEN_ADDR=:8080
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=
+      - VEIL_ROUTER_CONFIG=/etc/agentveil/router.yaml
+      - VEIL_DISCORD_WEBHOOK_URL=${VEIL_DISCORD_WEBHOOK_URL:-}
+    volumes:
+      - ./router.yaml:/etc/agentveil/router.yaml:ro
     depends_on:
       redis:
         condition: service_healthy

@@ -14,6 +14,7 @@ import (
 	"github.com/vurakit/agentveil/internal/detector"
 	"github.com/vurakit/agentveil/internal/promptguard"
 	"github.com/vurakit/agentveil/internal/vault"
+	"github.com/vurakit/agentveil/internal/webhook"
 )
 
 // Config holds proxy configuration
@@ -34,6 +35,11 @@ func WithPromptGuard(pg *promptguard.Guard) Option {
 	return func(s *Server) { s.promptGuard = pg }
 }
 
+// WithWebhook adds webhook notifications for PII events
+func WithWebhook(d *webhook.Dispatcher) Option {
+	return func(s *Server) { s.webhook = d }
+}
+
 // Server is the Agent Veil reverse proxy
 type Server struct {
 	proxy       *httputil.ReverseProxy
@@ -42,6 +48,7 @@ type Server struct {
 	vault       *vault.Vault
 	auth        *auth.Manager
 	promptGuard *promptguard.Guard
+	webhook     *webhook.Dispatcher
 }
 
 // New creates a new proxy Server
@@ -86,10 +93,13 @@ func (s *Server) Handler() http.Handler {
 	}
 	mux.Handle("/v1/", handler)
 	mux.Handle("/audit", http.HandlerFunc(s.handleAudit))
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/scan", http.HandlerFunc(s.handleScan))
+	healthHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok"}`))
-	})
+	}
+	mux.HandleFunc("/health", healthHandler)
+	mux.HandleFunc("/healthz", healthHandler)
 	return mux
 }
 
@@ -99,6 +109,11 @@ func (s *Server) director(req *http.Request) {
 	req.URL.Scheme = s.target.Scheme
 	req.URL.Host = s.target.Host
 	req.Host = s.target.Host
+
+	// Prepend target path if present (e.g., TARGET_URL=https://openrouter.ai/api)
+	if s.target.Path != "" && s.target.Path != "/" {
+		req.URL.Path = singleJoiningSlash(s.target.Path, req.URL.Path)
+	}
 
 	// Skip body processing for non-POST/PUT
 	if req.Body == nil || (req.Method != http.MethodPost && req.Method != http.MethodPut) {
@@ -127,6 +142,14 @@ func (s *Server) director(req *http.Request) {
 
 		if err := s.vault.Store(context.Background(), sessionID, mapping); err != nil {
 			log.Printf("[proxy] vault store error: %v", err)
+		}
+
+		if s.webhook != nil {
+			s.webhook.Emit(webhook.Event{
+				Type:      webhook.EventPIIDetected,
+				SessionID: sessionID,
+				Data:      map[string]any{"count": len(mapping), "source": "proxy"},
+			})
 		}
 	}
 
@@ -231,4 +254,68 @@ func extractSessionIDFromResponse(resp *http.Response) string {
 		return extractSessionID(resp.Request)
 	}
 	return "default"
+}
+
+// AnonymizeRequest returns a request modifier that anonymizes PII in the request body.
+// Used by the router to apply PII protection in multi-provider mode.
+// If a webhook Dispatcher is provided, PII detection events will be emitted.
+func AnonymizeRequest(det *detector.Detector, v *vault.Vault, wh ...*webhook.Dispatcher) func(*http.Request) {
+	var dispatcher *webhook.Dispatcher
+	if len(wh) > 0 {
+		dispatcher = wh[0]
+	}
+
+	return func(req *http.Request) {
+		if req.Body == nil || (req.Method != http.MethodPost && req.Method != http.MethodPut) {
+			return
+		}
+
+		limited := io.LimitReader(req.Body, MaxBodySize+1)
+		body, err := io.ReadAll(limited)
+		if err != nil {
+			log.Printf("[router] error reading request body: %v", err)
+			return
+		}
+		req.Body.Close()
+
+		if int64(len(body)) > MaxBodySize {
+			log.Printf("[router] request body too large: %d bytes", len(body))
+			return
+		}
+
+		sessionID := extractSessionID(req)
+		anonymized, mapping := det.Anonymize(string(body))
+
+		if len(mapping) > 0 {
+			log.Printf("[router] anonymized %d PII entities for session %s", len(mapping), sessionID)
+
+			if err := v.Store(context.Background(), sessionID, mapping); err != nil {
+				log.Printf("[router] vault store error: %v", err)
+			}
+
+			if dispatcher != nil {
+				dispatcher.Emit(webhook.Event{
+					Type:      webhook.EventPIIDetected,
+					SessionID: sessionID,
+					Data:      map[string]any{"count": len(mapping), "source": "router"},
+				})
+			}
+		}
+
+		req.Body = io.NopCloser(bytes.NewBufferString(anonymized))
+		req.ContentLength = int64(len(anonymized))
+	}
+}
+
+// singleJoiningSlash joins two URL path segments with exactly one slash.
+func singleJoiningSlash(a, b string) string {
+	aslash := strings.HasSuffix(a, "/")
+	bslash := strings.HasPrefix(b, "/")
+	switch {
+	case aslash && bslash:
+		return a + b[1:]
+	case !aslash && !bslash:
+		return a + "/" + b
+	}
+	return a + b
 }

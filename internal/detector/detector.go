@@ -32,6 +32,7 @@ type Config struct {
 	Sensitivity    Sensitivity
 	EnableVietnam  bool
 	EnableIntl     bool
+	EnableSecrets  bool
 	AllowList      map[string]bool // values to never flag
 	BlockList      map[string]bool // values to always flag
 }
@@ -42,6 +43,7 @@ func DefaultConfig() Config {
 		Sensitivity:   SensitivityMedium,
 		EnableVietnam: true,
 		EnableIntl:    true,
+		EnableSecrets: true,
 	}
 }
 
@@ -71,6 +73,9 @@ func NewWithConfig(cfg Config) *Detector {
 	}
 	if cfg.EnableIntl {
 		patterns = append(patterns, pii.InternationalPatterns()...)
+	}
+	if cfg.EnableSecrets {
+		patterns = append(patterns, pii.SecretPatterns()...)
 	}
 
 	return &Detector{
@@ -120,6 +125,49 @@ func confidenceFor(cat pii.Category, original string) int {
 		return 85
 	case pii.CatCMND:
 		return 50 // 9 digits is ambiguous without context
+	// Secret & credential categories
+	case pii.CatAPIKeyOpenAI:
+		return 98
+	case pii.CatAPIKeyAnthropic:
+		return 98
+	case pii.CatAPIKeyGoogle:
+		return 97
+	case pii.CatAWSAccessKey:
+		return 97
+	case pii.CatAWSSecretKey:
+		return 90
+	case pii.CatGitHubToken:
+		return 98
+	case pii.CatGitLabToken:
+		return 97
+	case pii.CatSlackToken:
+		return 95
+	case pii.CatStripeKey:
+		return 97
+	case pii.CatSendGridKey:
+		return 96
+	case pii.CatTwilioKey:
+		return 95
+	case pii.CatNPMToken:
+		return 96
+	case pii.CatPyPIToken:
+		return 96
+	case pii.CatDockerToken:
+		return 96
+	case pii.CatHuggingFace:
+		return 95
+	case pii.CatReplicateToken:
+		return 95
+	case pii.CatPEMPrivateKey:
+		return 99
+	case pii.CatJWT:
+		return 92
+	case pii.CatConnectionStr:
+		return 92
+	case pii.CatGenericSecret:
+		return 80
+	case pii.CatHexSecret:
+		return 75
 	default:
 		return 60
 	}
@@ -170,16 +218,21 @@ func (d *Detector) Scan(text string) []Match {
 			// Skip if already matched by higher-priority pattern
 			token, exists := seen[original]
 			if !exists {
-				counter := d.counters[p.Category]
-				if counter == nil {
-					counter = &atomic.Int64{}
-					d.mu.Lock()
-					d.counters[p.Category] = counter
-					d.mu.Unlock()
+				if pii.IsSecretCategory(p.Category) {
+					// Secrets: partial mask (show ~40%, hide rest with *)
+					token = pii.PartialMask(original)
+				} else {
+					counter := d.counters[p.Category]
+					if counter == nil {
+						counter = &atomic.Int64{}
+						d.mu.Lock()
+						d.counters[p.Category] = counter
+						d.mu.Unlock()
+					}
+					idx := counter.Add(1)
+					prefix := pii.TokenPrefix[p.Category]
+					token = fmt.Sprintf("[%s_%d]", prefix, idx)
 				}
-				idx := counter.Add(1)
-				prefix := pii.TokenPrefix[p.Category]
-				token = fmt.Sprintf("[%s_%d]", prefix, idx)
 				seen[original] = token
 			}
 

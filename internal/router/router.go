@@ -72,9 +72,21 @@ func New(cfg *RouterConfig) (*Router, error) {
 				req.URL.Host = target.Host
 				req.Host = target.Host
 
+				// Prepend target base path if present
+				// e.g. base_url=https://api.example.com/api → /chat becomes /api/chat
+				if target.Path != "" && target.Path != "/" {
+					req.URL.Path = singleJoiningSlash(target.Path, req.URL.Path)
+				}
+
 				// Set provider API key if configured
 				if pc.APIKey != "" {
-					req.Header.Set("Authorization", "Bearer "+pc.APIKey)
+					if pc.AuthMethod == "query" {
+						q := req.URL.Query()
+						q.Set(pc.AuthParam, pc.APIKey)
+						req.URL.RawQuery = q.Encode()
+					} else {
+						req.Header.Set("Authorization", "Bearer "+pc.APIKey)
+					}
 				}
 
 				// Apply custom request modifier
@@ -302,6 +314,19 @@ func (r *Router) nextPriority() string {
 		}
 	}
 	return r.defaultRoute
+}
+
+// singleJoiningSlash joins two URL path segments with exactly one slash.
+func singleJoiningSlash(a, b string) string {
+	aslash := strings.HasSuffix(a, "/")
+	bslash := strings.HasPrefix(b, "/")
+	switch {
+	case aslash && bslash:
+		return a + b[1:]
+	case !aslash && !bslash:
+		return a + "/" + b
+	}
+	return a + b
 }
 
 // stripRoutePrefix removes the route prefix from the path

@@ -53,13 +53,19 @@ type SlackConfig struct {
 	Username   string `json:"username,omitempty"`
 }
 
+// DiscordConfig configures Discord webhook integration
+type DiscordConfig struct {
+	WebhookURL string `json:"webhook_url"`
+}
+
 // Config holds webhook dispatcher configuration
 type Config struct {
-	Destinations []Destination `json:"destinations"`
-	Slack        *SlackConfig  `json:"slack,omitempty"`
-	RetryCount   int           `json:"retry_count"`
-	TimeoutSec   int           `json:"timeout_sec"`
-	BufferSize   int           `json:"buffer_size"`
+	Destinations []Destination  `json:"destinations"`
+	Slack        *SlackConfig   `json:"slack,omitempty"`
+	Discord      *DiscordConfig `json:"discord,omitempty"`
+	RetryCount   int            `json:"retry_count"`
+	TimeoutSec   int            `json:"timeout_sec"`
+	BufferSize   int            `json:"buffer_size"`
 }
 
 // DefaultConfig returns sensible defaults
@@ -98,6 +104,16 @@ func NewDispatcher(cfg Config) *Dispatcher {
 		d.destinations = append(d.destinations, Destination{
 			Name:    "slack",
 			URL:     cfg.Slack.WebhookURL,
+			Events:  nil, // all events
+			Enabled: true,
+		})
+	}
+
+	// Add Discord as a destination if configured
+	if cfg.Discord != nil && cfg.Discord.WebhookURL != "" {
+		d.destinations = append(d.destinations, Destination{
+			Name:    "discord",
+			URL:     cfg.Discord.WebhookURL,
 			Events:  nil, // all events
 			Enabled: true,
 		})
@@ -161,9 +177,12 @@ func (d *Dispatcher) dispatch(event Event) {
 			continue
 		}
 
-		if dest.Name == "slack" {
+		switch dest.Name {
+		case "slack":
 			d.sendSlack(dest, event)
-		} else {
+		case "discord":
+			d.sendDiscord(dest, event)
+		default:
 			d.sendWebhook(dest, event)
 		}
 	}
@@ -258,6 +277,84 @@ func (d *Dispatcher) sendSlack(dest Destination, event Event) {
 
 	if resp.StatusCode != http.StatusOK {
 		slog.Warn("webhook: slack non-200", "status", resp.StatusCode)
+	}
+}
+
+func (d *Dispatcher) sendDiscord(dest Destination, event Event) {
+	payload, err := json.Marshal(formatDiscordMessage(event))
+	if err != nil {
+		slog.Error("webhook: discord marshal error", "error", err)
+		return
+	}
+
+	resp, err := d.client.Post(dest.URL, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		slog.Warn("webhook: discord delivery failed", "error", err)
+		return
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		slog.Warn("webhook: discord non-2xx", "status", resp.StatusCode)
+	}
+}
+
+// discordPayload is the Discord webhook JSON structure
+type discordPayload struct {
+	Content string         `json:"content,omitempty"`
+	Embeds  []discordEmbed `json:"embeds"`
+}
+
+type discordEmbed struct {
+	Title  string         `json:"title"`
+	Color  int            `json:"color"`
+	Fields []discordField `json:"fields"`
+	Footer *discordFooter `json:"footer,omitempty"`
+}
+
+type discordField struct {
+	Name   string `json:"name"`
+	Value  string `json:"value"`
+	Inline bool   `json:"inline"`
+}
+
+type discordFooter struct {
+	Text string `json:"text"`
+}
+
+func formatDiscordMessage(event Event) discordPayload {
+	title := fmt.Sprintf("[Agent Veil] %s", event.Type)
+
+	// Red for high risk, yellow for PII detected, blue for others
+	color := 3447003 // blue
+	switch event.Type {
+	case EventPIIHighRisk, EventAuditHighRisk, EventGuardrailViolation:
+		color = 15158332 // red
+	case EventPIIDetected, EventPromptInjection, EventRateLimitHit:
+		color = 15844367 // yellow
+	case EventProviderFailover:
+		color = 3066993 // green
+	}
+
+	data, _ := json.Marshal(event.Data)
+
+	fields := []discordField{
+		{Name: "Event", Value: fmt.Sprintf("`%s`", event.Type), Inline: true},
+		{Name: "Session", Value: fmt.Sprintf("`%s`", event.SessionID), Inline: true},
+		{Name: "Data", Value: fmt.Sprintf("```json\n%s\n```", string(data)), Inline: false},
+	}
+
+	return discordPayload{
+		Embeds: []discordEmbed{
+			{
+				Title:  title,
+				Color:  color,
+				Fields: fields,
+				Footer: &discordFooter{
+					Text: fmt.Sprintf("Agent Veil • %s", event.Timestamp.Format("2006-01-02 15:04:05 UTC")),
+				},
+			},
+		},
 	}
 }
 

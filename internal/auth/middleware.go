@@ -11,20 +11,21 @@ import (
 // (overriding any client-provided value) and passes to the next handler.
 func (m *Manager) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, `{"error":"unauthorized","message":"missing Authorization header"}`, http.StatusUnauthorized)
+		// Support both "Authorization: Bearer <key>" (OpenAI) and "x-api-key: <key>" (Anthropic)
+		var token string
+		if authHeader := r.Header.Get("Authorization"); authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
+				http.Error(w, `{"error":"unauthorized","message":"invalid Authorization format"}`, http.StatusUnauthorized)
+				return
+			}
+			token = parts[1]
+		} else if apiKey := r.Header.Get("x-api-key"); apiKey != "" {
+			token = apiKey
+		} else {
+			http.Error(w, `{"error":"unauthorized","message":"missing Authorization or x-api-key header"}`, http.StatusUnauthorized)
 			return
 		}
-
-		// Extract key from "Bearer veil_sk_xxx" or "Bearer sk-xxx"
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
-			http.Error(w, `{"error":"unauthorized","message":"invalid Authorization format"}`, http.StatusUnauthorized)
-			return
-		}
-
-		token := parts[1]
 
 		// If it's a Agent Veil API key, validate and bind role
 		if strings.HasPrefix(token, "veil_sk_") {

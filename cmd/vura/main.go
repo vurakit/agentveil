@@ -39,6 +39,8 @@ func main() {
 		handleConfig(args)
 	case "compliance":
 		handleCompliance(args)
+	case "setup":
+		handleSetup(args)
 	case "version", "--version", "-v":
 		fmt.Printf("agentveil version %s\n", version)
 	case "help", "--help", "-h":
@@ -63,6 +65,9 @@ Commands:
   scan <text>            Scan text for PII (Personally Identifiable Information)
   config show            Show current configuration
   compliance check       Check compliance against regulatory frameworks
+  setup                  One-command setup (build, start, configure shell)
+  setup --undo           Uninstall Agent Veil
+  setup --status         Check setup status
   version                Show version
   help                   Show this help
 

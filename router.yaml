@@ -1,0 +1,36 @@
+# Agent Veil — Multi-Provider Router Configuration
+#
+# API keys can reference env vars with $ENV_VAR syntax.
+# Auth methods: "header" (Authorization: Bearer) or "query" (?key=...)
+
+providers:
+  - name: anthropic
+    base_url: https://api.anthropic.com
+    api_key: $ANTHROPIC_API_KEY
+    auth_method: header
+    model: claude-sonnet-4-20250514
+    priority: 1
+    enabled: true
+
+  - name: gemini
+    base_url: https://generativelanguage.googleapis.com
+    api_key: $GOOGLE_API_KEY
+    auth_method: query
+    auth_param: key
+    model: gemini-pro
+    priority: 2
+    enabled: true
+
+routes:
+  # /gemini/* requests → strip prefix, forward to Gemini API
+  - path_prefix: /gemini
+    provider: gemini
+  # All other paths (e.g. /v1/messages) → default_route (anthropic), no stripping
+
+fallback:
+  enabled: true
+  max_attempts: 2
+  retry_delay_sec: 1
+
+load_balance: priority
+default_route: anthropic

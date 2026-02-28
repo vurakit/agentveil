@@ -208,6 +208,70 @@ func TestDispatcher_SlackWebhook(t *testing.T) {
 	}
 }
 
+func TestDispatcher_DiscordWebhook(t *testing.T) {
+	var receivedPayload discordPayload
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&receivedPayload)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	cfg := DefaultConfig()
+	cfg.Discord = &DiscordConfig{
+		WebhookURL: server.URL,
+	}
+	cfg.RetryCount = 0
+
+	d := NewDispatcher(cfg)
+	d.Emit(Event{
+		Type:      EventPIIDetected,
+		SessionID: "session-discord",
+		Data:      map[string]int{"count": 5},
+	})
+
+	time.Sleep(200 * time.Millisecond)
+	d.Close()
+
+	if len(receivedPayload.Embeds) != 1 {
+		t.Fatalf("expected 1 embed, got %d", len(receivedPayload.Embeds))
+	}
+	embed := receivedPayload.Embeds[0]
+	if embed.Title == "" {
+		t.Error("expected non-empty embed title")
+	}
+	if embed.Color != 15844367 { // yellow for PII detected
+		t.Errorf("expected yellow color 15844367, got %d", embed.Color)
+	}
+	if len(embed.Fields) < 3 {
+		t.Errorf("expected at least 3 fields, got %d", len(embed.Fields))
+	}
+}
+
+func TestFormatDiscordMessage(t *testing.T) {
+	event := Event{
+		Type:      EventPIIHighRisk,
+		SessionID: "session-456",
+		Timestamp: time.Date(2026, 1, 15, 10, 30, 0, 0, time.UTC),
+		Data:      map[string]int{"count": 3},
+	}
+
+	payload := formatDiscordMessage(event)
+	if len(payload.Embeds) != 1 {
+		t.Fatalf("expected 1 embed, got %d", len(payload.Embeds))
+	}
+
+	embed := payload.Embeds[0]
+	if embed.Color != 15158332 { // red for high risk
+		t.Errorf("expected red color 15158332, got %d", embed.Color)
+	}
+	if !containsAll(embed.Title, "Agent Veil", "pii.high_risk") {
+		t.Error("title should contain event type")
+	}
+	if embed.Footer == nil || embed.Footer.Text == "" {
+		t.Error("expected non-empty footer")
+	}
+}
+
 func TestDispatcher_EventAutoID(t *testing.T) {
 	var receivedEvent Event
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

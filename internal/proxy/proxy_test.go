@@ -321,6 +321,130 @@ func TestProxy_AuditInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestProxy_ScanWithPII(t *testing.T) {
+	srv, upstream := setupTestProxy(t, nil)
+	defer upstream.Close()
+
+	body := `{"text":"SĐT: 0369999999, email: test@example.com"}`
+	req := httptest.NewRequest(http.MethodPost, "/scan", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp struct {
+		Found    bool `json:"found"`
+		Entities []struct {
+			Original   string `json:"original"`
+			Category   string `json:"category"`
+			Confidence int    `json:"confidence"`
+		} `json:"entities"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if !resp.Found {
+		t.Error("expected found=true for text with PII")
+	}
+	if len(resp.Entities) == 0 {
+		t.Error("expected at least one entity")
+	}
+
+	// Check that phone and email are detected
+	categories := make(map[string]bool)
+	for _, e := range resp.Entities {
+		categories[e.Category] = true
+	}
+	if !categories["PHONE"] {
+		t.Error("expected PHONE category in entities")
+	}
+	if !categories["EMAIL"] {
+		t.Error("expected EMAIL category in entities")
+	}
+}
+
+func TestProxy_ScanCleanText(t *testing.T) {
+	srv, upstream := setupTestProxy(t, nil)
+	defer upstream.Close()
+
+	body := `{"text":"Xin chào, tôi muốn hỏi về sản phẩm"}`
+	req := httptest.NewRequest(http.MethodPost, "/scan", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp struct {
+		Found    bool          `json:"found"`
+		Entities []interface{} `json:"entities"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Found {
+		t.Error("expected found=false for clean text")
+	}
+	if len(resp.Entities) != 0 {
+		t.Errorf("expected 0 entities, got %d", len(resp.Entities))
+	}
+}
+
+func TestProxy_ScanMethodNotAllowed(t *testing.T) {
+	srv, upstream := setupTestProxy(t, nil)
+	defer upstream.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/scan", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405 for GET /scan, got %d", rec.Code)
+	}
+}
+
+func TestProxy_ScanEmptyText(t *testing.T) {
+	srv, upstream := setupTestProxy(t, nil)
+	defer upstream.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/scan", strings.NewReader(`{"text":""}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for empty text, got %d", rec.Code)
+	}
+}
+
+func TestProxy_HealthzEndpoint(t *testing.T) {
+	srv, upstream := setupTestProxy(t, nil)
+	defer upstream.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rec.Code)
+	}
+
+	var resp map[string]string
+	json.NewDecoder(rec.Body).Decode(&resp)
+	if resp["status"] != "ok" {
+		t.Errorf("expected status ok, got %s", resp["status"])
+	}
+}
+
 func TestVault_Integration(t *testing.T) {
 	mr := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
