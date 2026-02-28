@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Download dependencies
+        run: go mod download
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+        env:
+          REDIS_ADDR: localhost:6379
+      - name: Check coverage
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "Coverage ${COVERAGE}% is below 80% threshold"
+            exit 1
+          fi
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.out
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Build proxy
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o vura-proxy ./cmd/proxy
+      - name: Build CLI
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o vura ./cmd/vura
+      - name: Upload proxy
+        uses: actions/upload-artifact@v4
+        with:
+          name: vura-proxy
+          path: vura-proxy
+      - name: Upload CLI
+        uses: actions/upload-artifact@v4
+        with:
+          name: vura-cli
+          path: vura

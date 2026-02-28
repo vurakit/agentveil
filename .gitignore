@@ -1,0 +1,40 @@
+# Binaries (only in root, not cmd/vura/ source)
+/vura-proxy
+/vura
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test
+coverage.out
+*.test
+*.prof
+
+# Build
+/dist/
+/bin/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Go
+vendor/
+
+# Temporary
+*.tmp
+*.log
+plan.md

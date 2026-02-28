@@ -1,0 +1,20 @@
+{
+  "name": "@vura/sdk",
+  "version": "0.1.0",
+  "description": "Vura PrivacyGuard SDK for Node.js / TypeScript",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test src/*.test.ts"
+  },
+  "keywords": ["vura", "pii", "privacy", "ai", "proxy", "security"],
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vura-ai/vura"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
