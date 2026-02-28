@@ -8,7 +8,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/vura/privacyguard/internal/vault"
+	"github.com/vurakit/agentveil/internal/vault"
 )
 
 // sseRehydrator wraps an SSE response body and rehydrates PII tokens line-by-line

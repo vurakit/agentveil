@@ -354,7 +354,7 @@ func TestReportHTML(t *testing.T) {
 	if !strings.Contains(html, "<html>") {
 		t.Error("expected HTML output")
 	}
-	if !strings.Contains(html, "Vura Audit Report") {
+	if !strings.Contains(html, "Agent Veil Audit Report") {
 		t.Error("expected report title")
 	}
 }

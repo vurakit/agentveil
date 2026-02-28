@@ -222,7 +222,7 @@ func TestRouteByHeader(t *testing.T) {
 	r, _ := New(cfg)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-	req.Header.Set("X-Vura-Provider", "secondary")
+	req.Header.Set("X-Veil-Provider", "secondary")
 	name := r.resolveProvider(req)
 	if name != "secondary" {
 		t.Errorf("expected secondary from header, got %s", name)
@@ -234,7 +234,7 @@ func TestRouteByHeader_Unknown(t *testing.T) {
 	r, _ := New(cfg)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-	req.Header.Set("X-Vura-Provider", "nonexistent")
+	req.Header.Set("X-Veil-Provider", "nonexistent")
 	name := r.resolveProvider(req)
 	// Should fallback to load balance / default
 	if name == "nonexistent" {
@@ -418,7 +418,7 @@ func TestServeHTTP_HeaderRoute(t *testing.T) {
 
 	r, _ := New(cfg)
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-	req.Header.Set("X-Vura-Provider", "target")
+	req.Header.Set("X-Veil-Provider", "target")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

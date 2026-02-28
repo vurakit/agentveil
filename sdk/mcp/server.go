@@ -1,7 +1,7 @@
-// Package mcp implements a Model Context Protocol (MCP) server for Vura.
+// Package mcp implements a Model Context Protocol (MCP) server for Agent Veil.
 //
 // MCP allows AI tools (Claude Code, Cursor, etc.) to discover and use
-// Vura capabilities as tools: PII scanning, auditing, compliance checking.
+// Agent Veil capabilities as tools: PII scanning, auditing, compliance checking.
 //
 // Usage:
 //
@@ -19,15 +19,15 @@ import (
 
 // ToolName constants
 const (
-	ToolScanPII         = "vura_scan_pii"
-	ToolAuditSkill      = "vura_audit_skill"
-	ToolCheckCompliance = "vura_check_compliance"
-	ToolHealthCheck     = "vura_health"
+	ToolScanPII         = "veil_scan_pii"
+	ToolAuditSkill      = "veil_audit_skill"
+	ToolCheckCompliance = "veil_check_compliance"
+	ToolHealthCheck     = "veil_health"
 )
 
 // Config for the MCP server
 type Config struct {
-	ProxyURL string // Vura proxy URL
+	ProxyURL string // Agent Veil proxy URL
 }
 
 // Server implements MCP protocol endpoints
@@ -118,7 +118,7 @@ func (s *Server) handleListTools(w http.ResponseWriter, r *http.Request) {
 			},
 			{
 				Name:        ToolHealthCheck,
-				Description: "Check the health status of the Vura privacy proxy.",
+				Description: "Check the health status of the Agent Veil privacy proxy.",
 				InputSchema: json.RawMessage(`{
 					"type": "object",
 					"properties": {}

@@ -202,7 +202,7 @@ func (g *Guardrail) TruncateOutput(output string) string {
 	if len(output) <= maxChars {
 		return output
 	}
-	return output[:maxChars] + "\n\n[Output truncated by Vura guardrail]"
+	return output[:maxChars] + "\n\n[Output truncated by Agent Veil guardrail]"
 }
 
 func extractMatch(text string, pattern *regexp.Regexp, maxLen int) string {

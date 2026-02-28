@@ -1,4 +1,4 @@
-package privacyguard
+package agentveil
 
 import (
 	"fmt"
@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// Config holds PrivacyGuard proxy configuration
+// Config holds Agent Veil proxy configuration
 type Config struct {
-	// ProxyURL is the PrivacyGuard proxy address (e.g. "http://localhost:8080")
+	// ProxyURL is the Agent Veil proxy address (e.g. "http://localhost:8080")
 	ProxyURL string
 
 	// APIKey is the customer's original LLM API key (forwarded as-is)
@@ -22,7 +22,7 @@ type Config struct {
 	SessionID string
 }
 
-// Transport is an http.RoundTripper that injects PrivacyGuard headers
+// Transport is an http.RoundTripper that injects Agent Veil headers
 // into every request and rewrites the target URL to the proxy.
 type Transport struct {
 	cfg  Config
@@ -43,12 +43,12 @@ func NewTransport(cfg Config, base http.RoundTripper) *Transport {
 	return &Transport{cfg: cfg, base: base}
 }
 
-// RoundTrip rewrites the request to go through PrivacyGuard proxy
+// RoundTrip rewrites the request to go through Agent Veil proxy
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Clone request to avoid mutating the original
 	r := req.Clone(req.Context())
 
-	// Inject PrivacyGuard headers
+	// Inject Agent Veil headers
 	r.Header.Set("X-Session-ID", t.cfg.SessionID)
 	r.Header.Set("X-User-Role", t.cfg.Role)
 
@@ -60,7 +60,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.base.RoundTrip(r)
 }
 
-// NewHTTPClient returns an *http.Client pre-configured to route through PrivacyGuard
+// NewHTTPClient returns an *http.Client pre-configured to route through Agent Veil
 func NewHTTPClient(cfg Config) *http.Client {
 	return &http.Client{
 		Transport: NewTransport(cfg, nil),

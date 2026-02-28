@@ -10,26 +10,26 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/vura/privacyguard/internal/auth"
-	"github.com/vura/privacyguard/internal/detector"
-	"github.com/vura/privacyguard/internal/logging"
-	"github.com/vura/privacyguard/internal/proxy"
-	"github.com/vura/privacyguard/internal/ratelimit"
-	"github.com/vura/privacyguard/internal/vault"
+	"github.com/vurakit/agentveil/internal/auth"
+	"github.com/vurakit/agentveil/internal/detector"
+	"github.com/vurakit/agentveil/internal/logging"
+	"github.com/vurakit/agentveil/internal/proxy"
+	"github.com/vurakit/agentveil/internal/ratelimit"
+	"github.com/vurakit/agentveil/internal/vault"
 )
 
 func main() {
 	// Structured logging
 	logLevel := envOr("LOG_LEVEL", "info")
 	logger := logging.Setup(logLevel, os.Stdout)
-	logger.Info("starting PrivacyGuard PaaS")
+	logger.Info("starting Agent Veil")
 
 	// Configuration
 	targetURL := envOr("TARGET_URL", "https://api.openai.com")
 	listenAddr := envOr("LISTEN_ADDR", ":8080")
 	redisAddr := envOr("REDIS_ADDR", "localhost:6379")
 	redisPassword := envOr("REDIS_PASSWORD", "")
-	encryptionKey := envOr("VURA_ENCRYPTION_KEY", "") // 64 hex chars = 32 bytes
+	encryptionKey := envOr("VEIL_ENCRYPTION_KEY", "") // 64 hex chars = 32 bytes
 	tlsCert := envOr("TLS_CERT", "")
 	tlsKey := envOr("TLS_KEY", "")
 
@@ -52,7 +52,7 @@ func main() {
 	if encryptionKey != "" {
 		keyBytes, err := hex.DecodeString(encryptionKey)
 		if err != nil || len(keyBytes) != 32 {
-			logger.Error("VURA_ENCRYPTION_KEY must be 64 hex chars (32 bytes)", "len", len(encryptionKey))
+			logger.Error("VEIL_ENCRYPTION_KEY must be 64 hex chars (32 bytes)", "len", len(encryptionKey))
 			os.Exit(1)
 		}
 		enc, err := vault.NewEncryptor(keyBytes)

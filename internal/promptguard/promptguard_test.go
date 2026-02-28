@@ -279,8 +279,8 @@ func TestCanaryStore_GenerateAndCheck(t *testing.T) {
 	cs := NewCanaryStore()
 	canary := cs.Generate("session-123")
 
-	if !strings.HasPrefix(canary.Token, "vura_canary_") {
-		t.Errorf("expected vura_canary_ prefix, got: %s", canary.Token)
+	if !strings.HasPrefix(canary.Token, "veil_canary_") {
+		t.Errorf("expected veil_canary_ prefix, got: %s", canary.Token)
 	}
 	if canary.SessionID != "session-123" {
 		t.Errorf("expected session-123, got: %s", canary.SessionID)

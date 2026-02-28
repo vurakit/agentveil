@@ -10,10 +10,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/vura/privacyguard/internal/auth"
-	"github.com/vura/privacyguard/internal/detector"
-	"github.com/vura/privacyguard/internal/promptguard"
-	"github.com/vura/privacyguard/internal/vault"
+	"github.com/vurakit/agentveil/internal/auth"
+	"github.com/vurakit/agentveil/internal/detector"
+	"github.com/vurakit/agentveil/internal/promptguard"
+	"github.com/vurakit/agentveil/internal/vault"
 )
 
 // Config holds proxy configuration
@@ -34,7 +34,7 @@ func WithPromptGuard(pg *promptguard.Guard) Option {
 	return func(s *Server) { s.promptGuard = pg }
 }
 
-// Server is the PrivacyGuard reverse proxy
+// Server is the Agent Veil reverse proxy
 type Server struct {
 	proxy       *httputil.ReverseProxy
 	target      *url.URL

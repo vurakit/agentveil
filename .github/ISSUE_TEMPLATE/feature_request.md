@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest an idea for Vura
+about: Suggest an idea for Agent Veil
 title: "[FEATURE] "
 labels: enhancement
 assignees: ''

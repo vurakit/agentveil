@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/vura/privacyguard/internal/auditor"
+	"github.com/vurakit/agentveil/internal/auditor"
 )
 
 // AuditRequest is the JSON body for skill.md audit requests

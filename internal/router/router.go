@@ -234,7 +234,7 @@ func (r *Router) serveWithFallback(w http.ResponseWriter, req *http.Request, pri
 // resolveProvider determines which provider to use for a request
 func (r *Router) resolveProvider(req *http.Request) string {
 	// 1. Check explicit provider header
-	if provider := req.Header.Get("X-Vura-Provider"); provider != "" {
+	if provider := req.Header.Get("X-Veil-Provider"); provider != "" {
 		if _, ok := r.providers[provider]; ok {
 			return provider
 		}

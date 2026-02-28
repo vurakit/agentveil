@@ -44,12 +44,12 @@ func NewManager(client *redis.Client) *Manager {
 // GenerateKey creates a new API key and stores its hash in Redis.
 // Returns the plaintext key (show once to user) and the APIKey metadata.
 func (m *Manager) GenerateKey(ctx context.Context, role Role, label string) (string, *APIKey, error) {
-	// Generate random key: vura_sk_<32 hex chars>
+	// Generate random key: veil_sk_<32 hex chars>
 	raw := make([]byte, 16)
 	if _, err := rand.Read(raw); err != nil {
 		return "", nil, fmt.Errorf("generate random: %w", err)
 	}
-	plaintext := "vura_sk_" + hex.EncodeToString(raw)
+	plaintext := "veil_sk_" + hex.EncodeToString(raw)
 
 	hash := hashKey(plaintext)
 	id := hash[:12]

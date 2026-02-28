@@ -5,7 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/vura/privacyguard/pkg/pii"
+	"github.com/vurakit/agentveil/pkg/pii"
 )
 
 // Sensitivity controls detection aggressiveness

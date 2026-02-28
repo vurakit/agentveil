@@ -1,6 +1,6 @@
 # Binaries (only in root, not cmd/vura/ source)
-/vura-proxy
-/vura
+/agentveil-proxy
+/agentveil
 *.exe
 *.dll
 *.so

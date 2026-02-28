@@ -9,12 +9,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/vura/privacyguard/internal/auditor"
-	"github.com/vura/privacyguard/internal/compliance"
-	"github.com/vura/privacyguard/internal/detector"
+	"github.com/vurakit/agentveil/internal/auditor"
+	"github.com/vurakit/agentveil/internal/compliance"
+	"github.com/vurakit/agentveil/internal/detector"
 )
 
-// handleWrap wraps an AI tool command, setting env vars to route through Vura proxy
+// handleWrap wraps an AI tool command, setting env vars to route through Agent Veil proxy
 func handleWrap(args []string) {
 	// Find "--" separator
 	dashIdx := -1
@@ -31,12 +31,12 @@ func handleWrap(args []string) {
 	} else if len(args) > 0 && args[0] != "--" {
 		cmdArgs = args
 	} else {
-		fmt.Println("Usage: vura wrap -- <command> [args...]")
+		fmt.Println("Usage: agentveil wrap -- <command> [args...]")
 		fmt.Println("\nExamples:")
-		fmt.Println("  vura wrap -- claude-code")
-		fmt.Println("  vura wrap -- cursor")
-		fmt.Println("  vura wrap -- aider --model gpt-4")
-		fmt.Println("  vura wrap -- python my_agent.py")
+		fmt.Println("  agentveil wrap -- claude-code")
+		fmt.Println("  agentveil wrap -- cursor")
+		fmt.Println("  agentveil wrap -- aider --model gpt-4")
+		fmt.Println("  agentveil wrap -- python my_agent.py")
 		return
 	}
 
@@ -45,7 +45,7 @@ func handleWrap(args []string) {
 		os.Exit(1)
 	}
 
-	proxyURL := envOr("VURA_PROXY_URL", "http://localhost:8080")
+	proxyURL := envOr("VEIL_PROXY_URL", "http://localhost:8080")
 	baseURL := proxyURL + "/v1"
 
 	// Detect the tool and set appropriate env vars
@@ -55,25 +55,25 @@ func handleWrap(args []string) {
 	switch {
 	case strings.Contains(toolName, "claude"):
 		env = setEnv(env, "ANTHROPIC_BASE_URL", baseURL)
-		fmt.Fprintf(os.Stderr, "🛡️  Vura: wrapping Claude via %s\n", baseURL)
+		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping Claude via %s\n", baseURL)
 	case strings.Contains(toolName, "cursor"):
 		env = setEnv(env, "OPENAI_BASE_URL", baseURL)
 		env = setEnv(env, "ANTHROPIC_BASE_URL", baseURL)
-		fmt.Fprintf(os.Stderr, "🛡️  Vura: wrapping Cursor via %s\n", baseURL)
+		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping Cursor via %s\n", baseURL)
 	case strings.Contains(toolName, "aider"):
 		env = setEnv(env, "OPENAI_API_BASE", baseURL)
-		fmt.Fprintf(os.Stderr, "🛡️  Vura: wrapping Aider via %s\n", baseURL)
+		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping Aider via %s\n", baseURL)
 	default:
 		// Generic: set all common env vars
 		env = setEnv(env, "OPENAI_BASE_URL", baseURL)
 		env = setEnv(env, "OPENAI_API_BASE", baseURL)
 		env = setEnv(env, "ANTHROPIC_BASE_URL", baseURL)
-		fmt.Fprintf(os.Stderr, "🛡️  Vura: wrapping %s via %s\n", cmdArgs[0], baseURL)
+		fmt.Fprintf(os.Stderr, "🛡️  Agent Veil: wrapping %s via %s\n", cmdArgs[0], baseURL)
 	}
 
-	// Pass through Vura API key if set
-	if apiKey := os.Getenv("VURA_API_KEY"); apiKey != "" {
-		env = setEnv(env, "VURA_API_KEY", apiKey)
+	// Pass through Agent Veil API key if set
+	if apiKey := os.Getenv("VEIL_API_KEY"); apiKey != "" {
+		env = setEnv(env, "VEIL_API_KEY", apiKey)
 	}
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
@@ -94,10 +94,10 @@ func handleWrap(args []string) {
 // handleAudit audits a skill.md file
 func handleAudit(args []string) {
 	if len(args) == 0 {
-		fmt.Println("Usage: vura audit <file|->")
+		fmt.Println("Usage: agentveil audit <file|->")
 		fmt.Println("\nExamples:")
-		fmt.Println("  vura audit skill.md")
-		fmt.Println("  cat skill.md | vura audit -")
+		fmt.Println("  agentveil audit skill.md")
+		fmt.Println("  cat skill.md | agentveil audit -")
 		return
 	}
 
@@ -171,7 +171,7 @@ func handleAudit(args []string) {
 }
 
 func printAuditReport(report auditor.Report) {
-	fmt.Printf("\n=== Vura Audit Report ===\n\n")
+	fmt.Printf("\n=== Agent Veil Audit Report ===\n\n")
 	fmt.Printf("Risk Level:  %s (%d/4)\n", report.RiskLevelLabel, report.RiskLevel)
 	fmt.Printf("Score:       %.0f/100\n", report.Score)
 	fmt.Printf("Findings:    %d\n", len(report.Findings))
@@ -199,10 +199,10 @@ func printAuditReport(report auditor.Report) {
 // handleScan scans text for PII
 func handleScan(args []string) {
 	if len(args) == 0 {
-		fmt.Println("Usage: vura scan <text|->")
+		fmt.Println("Usage: agentveil scan <text|->")
 		fmt.Println("\nExamples:")
-		fmt.Println("  vura scan \"CCCD: 012345678901, phone: 0912345678\"")
-		fmt.Println("  echo \"text\" | vura scan -")
+		fmt.Println("  agentveil scan \"CCCD: 012345678901, phone: 0912345678\"")
+		fmt.Println("  echo \"text\" | agentveil scan -")
 		return
 	}
 
@@ -260,32 +260,32 @@ func handleScan(args []string) {
 func handleConfig(args []string) {
 	if len(args) == 0 || args[0] == "show" {
 		config := map[string]string{
-			"VURA_PROXY_URL":      envOr("VURA_PROXY_URL", "http://localhost:8080"),
+			"VEIL_PROXY_URL":      envOr("VEIL_PROXY_URL", "http://localhost:8080"),
 			"TARGET_URL":          envOr("TARGET_URL", "https://api.openai.com"),
 			"REDIS_ADDR":          envOr("REDIS_ADDR", "localhost:6379"),
 			"LISTEN_ADDR":         envOr("LISTEN_ADDR", ":8080"),
 			"LOG_LEVEL":           envOr("LOG_LEVEL", "info"),
-			"VURA_ENCRYPTION_KEY": maskIfSet("VURA_ENCRYPTION_KEY"),
-			"VURA_API_KEY":        maskIfSet("VURA_API_KEY"),
+			"VEIL_ENCRYPTION_KEY": maskIfSet("VEIL_ENCRYPTION_KEY"),
+			"VEIL_API_KEY":        maskIfSet("VEIL_API_KEY"),
 		}
 
-		fmt.Println("Vura Configuration:")
+		fmt.Println("Agent Veil Configuration:")
 		fmt.Println()
 		for k, v := range config {
 			fmt.Printf("  %-25s %s\n", k+":", v)
 		}
 		fmt.Printf("\n  %-25s %s\n", "Go version:", runtime.Version())
 		fmt.Printf("  %-25s %s/%s\n", "Platform:", runtime.GOOS, runtime.GOARCH)
-		fmt.Printf("  %-25s %s\n", "Vura version:", version)
+		fmt.Printf("  %-25s %s\n", "Agent Veil version:", version)
 	} else {
-		fmt.Println("Usage: vura config show")
+		fmt.Println("Usage: agentveil config show")
 	}
 }
 
 // handleCompliance checks regulatory compliance
 func handleCompliance(args []string) {
 	if len(args) == 0 || args[0] != "check" {
-		fmt.Println("Usage: vura compliance check [--framework <name>]")
+		fmt.Println("Usage: agentveil compliance check [--framework <name>]")
 		fmt.Println("\nFrameworks: vietnam, eu, gdpr, all (default)")
 		return
 	}
@@ -314,7 +314,7 @@ func handleCompliance(args []string) {
 	caps := compliance.SystemCapabilities{
 		PIIDetection:     true,
 		PIIAnonymization: true,
-		EncryptionAtRest: os.Getenv("VURA_ENCRYPTION_KEY") != "",
+		EncryptionAtRest: os.Getenv("VEIL_ENCRYPTION_KEY") != "",
 		AuditLogging:     true,
 		AccessControl:    true,
 		PromptGuard:      true,
@@ -346,7 +346,7 @@ func handleCompliance(args []string) {
 }
 
 func printComplianceReport(report compliance.ComplianceReport) {
-	fmt.Printf("\n=== Vura Compliance Report ===\n\n")
+	fmt.Printf("\n=== Agent Veil Compliance Report ===\n\n")
 	fmt.Printf("Score: %.0f/100\n", report.OverallScore)
 	fmt.Printf("%s\n\n", report.Summary)
 

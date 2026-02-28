@@ -11,29 +11,29 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/vura/privacyguard/internal/auth"
-	"github.com/vura/privacyguard/internal/detector"
-	"github.com/vura/privacyguard/internal/logging"
-	"github.com/vura/privacyguard/internal/promptguard"
-	"github.com/vura/privacyguard/internal/proxy"
-	"github.com/vura/privacyguard/internal/ratelimit"
-	"github.com/vura/privacyguard/internal/vault"
+	"github.com/vurakit/agentveil/internal/auth"
+	"github.com/vurakit/agentveil/internal/detector"
+	"github.com/vurakit/agentveil/internal/logging"
+	"github.com/vurakit/agentveil/internal/promptguard"
+	"github.com/vurakit/agentveil/internal/proxy"
+	"github.com/vurakit/agentveil/internal/ratelimit"
+	"github.com/vurakit/agentveil/internal/vault"
 )
 
 func handleProxy(args []string) {
 	if len(args) == 0 || args[0] != "start" {
-		fmt.Println("Usage: vura proxy start")
+		fmt.Println("Usage: agentveil proxy start")
 		return
 	}
 
 	logger := logging.Setup(envOr("LOG_LEVEL", "info"), os.Stdout)
-	logger.Info("starting Vura proxy", "version", version)
+	logger.Info("starting Agent Veil proxy", "version", version)
 
 	targetURL := envOr("TARGET_URL", "https://api.openai.com")
 	listenAddr := envOr("LISTEN_ADDR", ":8080")
 	redisAddr := envOr("REDIS_ADDR", "localhost:6379")
 	redisPassword := envOr("REDIS_PASSWORD", "")
-	encryptionKey := envOr("VURA_ENCRYPTION_KEY", "")
+	encryptionKey := envOr("VEIL_ENCRYPTION_KEY", "")
 
 	// Redis
 	redisClient := redis.NewClient(&redis.Options{
@@ -54,7 +54,7 @@ func handleProxy(args []string) {
 	if encryptionKey != "" {
 		keyBytes, err := hex.DecodeString(encryptionKey)
 		if err != nil || len(keyBytes) != 32 {
-			logger.Error("VURA_ENCRYPTION_KEY must be 64 hex chars")
+			logger.Error("VEIL_ENCRYPTION_KEY must be 64 hex chars")
 			os.Exit(1)
 		}
 		enc, err := vault.NewEncryptor(keyBytes)

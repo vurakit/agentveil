@@ -17,11 +17,11 @@ func TestDispatcher_EmitAndDeliver(t *testing.T) {
 		if r.Header.Get("Content-Type") != "application/json" {
 			t.Error("expected application/json content type")
 		}
-		if r.Header.Get("X-Vura-Event") == "" {
-			t.Error("expected X-Vura-Event header")
+		if r.Header.Get("X-Veil-Event") == "" {
+			t.Error("expected X-Veil-Event header")
 		}
-		if r.Header.Get("X-Vura-Delivery") == "" {
-			t.Error("expected X-Vura-Delivery header")
+		if r.Header.Get("X-Veil-Delivery") == "" {
+			t.Error("expected X-Veil-Delivery header")
 		}
 
 		var event Event
@@ -117,7 +117,7 @@ func TestDispatcher_DisabledDestination(t *testing.T) {
 func TestDispatcher_HMACSignature(t *testing.T) {
 	var receivedSig string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		receivedSig = r.Header.Get("X-Vura-Signature")
+		receivedSig = r.Header.Get("X-Veil-Signature")
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -186,7 +186,7 @@ func TestDispatcher_SlackWebhook(t *testing.T) {
 	cfg.Slack = &SlackConfig{
 		WebhookURL: server.URL,
 		Channel:    "#alerts",
-		Username:   "Vura Bot",
+		Username:   "Agent Veil Bot",
 	}
 	cfg.RetryCount = 0
 
@@ -288,7 +288,7 @@ func TestFormatSlackMessage(t *testing.T) {
 	if msg == "" {
 		t.Error("expected non-empty message")
 	}
-	if !containsAll(msg, "Vura", "pii.high_risk", "session-123") {
+	if !containsAll(msg, "Agent Veil", "pii.high_risk", "session-123") {
 		t.Error("message should contain event details")
 	}
 }

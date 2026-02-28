@@ -1,4 +1,4 @@
-module github.com/vura/privacyguard
+module github.com/vurakit/agentveil
 
 go 1.23.5
 

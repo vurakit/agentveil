@@ -5,7 +5,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 
 ## help: Show this help message
 help:
-	@echo "Vura — Privacy Proxy for AI Agents"
+	@echo "Agent Veil — Security Proxy for AI Agents"
 	@echo ""
 	@echo "Usage:"
 	@sed -n 's/^## //p' $(MAKEFILE_LIST) | column -t -s ':'
@@ -16,11 +16,11 @@ build: build-proxy build-cli
 
 ## build-proxy: Build the proxy server
 build-proxy:
-	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o bin/vura-proxy ./cmd/proxy
+	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o bin/agentveil-proxy ./cmd/proxy
 
 ## build-cli: Build the CLI tool
 build-cli:
-	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o bin/vura ./cmd/vura
+	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o bin/agentveil ./cmd/vura
 
 ## test: Run all tests with race detection
 test:
@@ -44,11 +44,11 @@ fmt:
 
 ## run: Start proxy with default config (requires Redis)
 run: build-proxy
-	./bin/vura-proxy
+	./bin/agentveil-proxy
 
 ## docker-build: Build Docker image
 docker-build:
-	docker build -t vura:$(VERSION) -t vura:latest .
+	docker build -t agentveil:$(VERSION) -t agentveil:latest .
 
 ## docker-up: Start all services with Docker Compose
 docker-up:

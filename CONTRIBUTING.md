@@ -1,6 +1,6 @@
-# Contributing to Vura
+# Contributing to Agent Veil
 
-Thank you for your interest in contributing to Vura! This guide will help you get started.
+Thank you for your interest in contributing to Agent Veil! This guide will help you get started.
 
 ## Development Setup
 
@@ -15,8 +15,8 @@ Thank you for your interest in contributing to Vura! This guide will help you ge
 
 ```bash
 # Clone the repository
-git clone https://github.com/vura-ai/vura.git
-cd vura
+git clone https://github.com/vurakit/agentveil.git
+cd agentveil
 
 # Copy environment config
 cp .env.example .env

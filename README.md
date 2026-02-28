@@ -1,4 +1,4 @@
-# Vura — Security Proxy for AI Agents
+# Agent Veil — Security Proxy for AI Agents
 
 > Real-time PII protection, prompt injection defense, and compliance enforcement between your app and LLM APIs. Zero code changes required.
 
@@ -12,7 +12,7 @@
 └──────────────┘          └─────────────────────────┘          └──────────────┘
 ```
 
-[![CI](https://github.com/vura-ai/vura/actions/workflows/ci.yml/badge.svg)](https://github.com/vura-ai/vura/actions/workflows/ci.yml)
+[![CI](https://github.com/vurakit/agentveil/actions/workflows/ci.yml/badge.svg)](https://github.com/vurakit/agentveil/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 ## Features
@@ -54,22 +54,22 @@
 - **Go** — HTTP transport wrapper for any Go HTTP client
 - **Python** — `activate()` monkey-patch, session management, audit API
 - **Node.js/TypeScript** — Full client with streaming, scanning, audit
-- **LangChain** — VuraCallbackHandler + VuraChatModel drop-in replacement
+- **LangChain** — Agent VeilCallbackHandler + Agent VeilChatModel drop-in replacement
 - **MCP Server** — Model Context Protocol server for Claude Code / Cursor
 
 ### CLI Tool
-- `vura proxy start` — Start the proxy server
-- `vura wrap -- <cmd>` — Auto-route AI tools (Claude, Cursor, Aider) through proxy
-- `vura scan <text>` — Scan text for PII
-- `vura audit <file>` — Analyze skill.md for security risks
-- `vura compliance check` — Check regulatory compliance
+- `agentveil proxy start` — Start the proxy server
+- `agentveil wrap -- <cmd>` — Auto-route AI tools (Claude, Cursor, Aider) through proxy
+- `agentveil scan <text>` — Scan text for PII
+- `agentveil audit <file>` — Analyze skill.md for security risks
+- `agentveil compliance check` — Check regulatory compliance
 
 ## Quick Start
 
 ### Option 1: Docker (recommended)
 
 ```bash
-git clone https://github.com/vura-ai/vura.git && cd vura
+git clone https://github.com/vurakit/agentveil.git && cd agentveil
 cp .env.example .env    # Edit configuration
 docker compose up -d
 ```
@@ -77,21 +77,21 @@ docker compose up -d
 ### Option 2: Build from source
 
 ```bash
-git clone https://github.com/vura-ai/vura.git && cd vura
-make build              # Builds bin/vura-proxy and bin/vura
+git clone https://github.com/vurakit/agentveil.git && cd agentveil
+make build              # Builds bin/agentveil-proxy and bin/agentveil
 
 # Start Redis
 docker run -d --name redis -p 6379:6379 redis:7-alpine
 
 # Run proxy
-TARGET_URL=https://api.openai.com ./bin/vura-proxy
+TARGET_URL=https://api.openai.com ./bin/agentveil-proxy
 ```
 
 ### Option 3: Go install
 
 ```bash
-go install github.com/vura/privacyguard/cmd/proxy@latest
-go install github.com/vura/privacyguard/cmd/vura@latest
+go install github.com/vurakit/agentveil/cmd/proxy@latest
+go install github.com/vurakit/agentveil/cmd/vura@latest
 ```
 
 ### Connect your AI tool
@@ -104,8 +104,8 @@ ANTHROPIC_BASE_URL=http://localhost:8080/v1 claude
 OPENAI_BASE_URL=http://localhost:8080/v1 aider
 
 # Or use the CLI wrapper (auto-detects tool)
-vura wrap -- claude
-vura wrap -- aider
+agentveil wrap -- claude
+agentveil wrap -- aider
 
 # Python
 client = OpenAI(base_url="http://localhost:8080/v1", api_key="sk-...")
@@ -134,7 +134,7 @@ That's it. All PII is now automatically protected.
 |--------|--------|-------------|
 | `X-User-Role` | `admin` / `viewer` / `operator` | Controls data masking level |
 | `X-Session-ID` | Any string | Groups PII mappings per session |
-| `X-Vura-Provider` | `openai` / `anthropic` / `gemini` / `ollama` | Route to specific provider |
+| `X-Agent Veil-Provider` | `openai` / `anthropic` / `gemini` / `ollama` | Route to specific provider |
 | `Authorization` | `Bearer <api-key>` | API authentication |
 
 ## Configuration
@@ -147,7 +147,7 @@ All configuration is via environment variables. See [`.env.example`](.env.exampl
 | `LISTEN_ADDR` | `:8080` | Proxy listen address |
 | `REDIS_ADDR` | `localhost:6379` | Redis address |
 | `REDIS_PASSWORD` | _(empty)_ | Redis password |
-| `VURA_ENCRYPTION_KEY` | _(empty)_ | AES-256 key (64 hex chars). Generate: `openssl rand -hex 32` |
+| `VEIL_ENCRYPTION_KEY` | _(empty)_ | AES-256 key (64 hex chars). Generate: `openssl rand -hex 32` |
 | `TLS_CERT` / `TLS_KEY` | _(empty)_ | TLS certificate and key paths |
 | `LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
 

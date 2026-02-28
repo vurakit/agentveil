@@ -27,8 +27,8 @@ func TestGenerateAndValidate(t *testing.T) {
 		t.Fatalf("generate failed: %v", err)
 	}
 
-	if !strings.HasPrefix(plaintext, "vura_sk_") {
-		t.Errorf("expected vura_sk_ prefix, got %s", plaintext)
+	if !strings.HasPrefix(plaintext, "veil_sk_") {
+		t.Errorf("expected veil_sk_ prefix, got %s", plaintext)
 	}
 	if key.Role != RoleAdmin {
 		t.Errorf("expected admin role, got %s", key.Role)
@@ -49,7 +49,7 @@ func TestGenerateAndValidate(t *testing.T) {
 
 func TestValidate_InvalidKey(t *testing.T) {
 	mgr := setupTestAuth(t)
-	_, err := mgr.Validate(context.Background(), "vura_sk_invalid")
+	_, err := mgr.Validate(context.Background(), "veil_sk_invalid")
 	if err == nil {
 		t.Error("expected error for invalid key")
 	}
@@ -132,14 +132,14 @@ func TestMiddleware_NoAuth(t *testing.T) {
 	}
 }
 
-func TestMiddleware_NonVuraKeyPassthrough(t *testing.T) {
+func TestMiddleware_NonVeilKeyPassthrough(t *testing.T) {
 	mgr := setupTestAuth(t)
 
 	handler := mgr.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	// OpenAI key (sk-xxx) should pass through without Vura validation
+	// OpenAI key (sk-xxx) should pass through without Agent Veil validation
 	req := httptest.NewRequest(http.MethodGet, "/v1/test", nil)
 	req.Header.Set("Authorization", "Bearer sk-proj-abc123")
 
@@ -147,7 +147,7 @@ func TestMiddleware_NonVuraKeyPassthrough(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Errorf("expected passthrough for non-vura key, got %d", rec.Code)
+		t.Errorf("expected passthrough for non-veil key, got %d", rec.Code)
 	}
 }
 

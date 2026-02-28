@@ -11,8 +11,8 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
-	"github.com/vura/privacyguard/internal/detector"
-	"github.com/vura/privacyguard/internal/vault"
+	"github.com/vurakit/agentveil/internal/detector"
+	"github.com/vurakit/agentveil/internal/vault"
 )
 
 func setupTestProxy(t *testing.T, upstreamHandler http.HandlerFunc) (*Server, *httptest.Server) {

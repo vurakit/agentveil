@@ -17,7 +17,7 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Extract key from "Bearer vura_sk_xxx" or "Bearer sk-xxx"
+		// Extract key from "Bearer veil_sk_xxx" or "Bearer sk-xxx"
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
 			http.Error(w, `{"error":"unauthorized","message":"invalid Authorization format"}`, http.StatusUnauthorized)
@@ -26,8 +26,8 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
 
 		token := parts[1]
 
-		// If it's a Vura API key, validate and bind role
-		if strings.HasPrefix(token, "vura_sk_") {
+		// If it's a Agent Veil API key, validate and bind role
+		if strings.HasPrefix(token, "veil_sk_") {
 			apiKey, err := m.Validate(r.Context(), token)
 			if err != nil {
 				log.Printf("[auth] rejected key: %v", err)
@@ -37,12 +37,12 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
 
 			// Override role from key binding — client cannot escalate
 			r.Header.Set("X-User-Role", string(apiKey.Role))
-			r.Header.Set("X-Vura-Key-ID", apiKey.ID)
+			r.Header.Set("X-Veil-Key-ID", apiKey.ID)
 
 			log.Printf("[auth] authenticated key=%s role=%s", apiKey.ID, apiKey.Role)
 		}
 
-		// Non-vura keys (e.g. sk-xxx for OpenAI) pass through
+		// Non-veil keys (e.g. sk-xxx for OpenAI) pass through
 		next.ServeHTTP(w, r)
 	})
 }

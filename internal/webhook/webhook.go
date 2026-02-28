@@ -196,14 +196,14 @@ func (d *Dispatcher) sendWebhook(dest Destination, event Event) {
 		}
 
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("User-Agent", "Vura-Webhook/1.0")
-		req.Header.Set("X-Vura-Event", string(event.Type))
-		req.Header.Set("X-Vura-Delivery", event.ID)
+		req.Header.Set("User-Agent", "AgentVeil-Webhook/1.0")
+		req.Header.Set("X-Veil-Event", string(event.Type))
+		req.Header.Set("X-Veil-Delivery", event.ID)
 
 		// HMAC signature
 		if dest.Secret != "" {
 			sig := signPayload(payload, dest.Secret)
-			req.Header.Set("X-Vura-Signature", "sha256="+sig)
+			req.Header.Set("X-Veil-Signature", "sha256="+sig)
 		}
 
 		// Custom headers
@@ -277,7 +277,7 @@ func formatSlackMessage(event Event) string {
 	}
 
 	data, _ := json.MarshalIndent(event.Data, "", "  ")
-	return fmt.Sprintf("%s *[Vura]* `%s`\nSession: `%s`\nTime: %s\n```%s```",
+	return fmt.Sprintf("%s *[Agent Veil]* `%s`\nSession: `%s`\nTime: %s\n```%s```",
 		emoji, event.Type, event.SessionID, event.Timestamp.Format("15:04:05"), string(data))
 }
 

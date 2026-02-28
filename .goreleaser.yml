@@ -1,11 +1,11 @@
 version: 2
 
-project_name: vura
+project_name: agentveil
 
 builds:
-  - id: vura-proxy
+  - id: agentveil-proxy
     main: ./cmd/proxy
-    binary: vura-proxy
+    binary: agentveil-proxy
     env:
       - CGO_ENABLED=0
     goos:
@@ -18,9 +18,9 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}}
 
-  - id: vura-cli
+  - id: agentveil-cli
     main: ./cmd/vura
-    binary: vura
+    binary: agentveil
     env:
       - CGO_ENABLED=0
     goos:
@@ -53,8 +53,8 @@ changelog:
 
 dockers:
   - image_templates:
-      - "ghcr.io/vura-ai/vura:{{ .Version }}"
-      - "ghcr.io/vura-ai/vura:latest"
+      - "ghcr.io/vurakit/agentveil:{{ .Version }}"
+      - "ghcr.io/vurakit/agentveil:latest"
     dockerfile: Dockerfile
     build_flag_templates:
       - "--platform=linux/amd64"

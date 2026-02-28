@@ -1,13 +1,13 @@
-// vura CLI — Security proxy for AI agents
+// agentveil CLI — Security proxy for AI agents
 //
 // Commands:
 //
-//	vura proxy start       Start the Vura proxy server
-//	vura wrap -- <cmd>     Wrap any AI tool to route through Vura
-//	vura audit <file>      Audit a skill.md file for security issues
-//	vura scan <text>       Scan text for PII
-//	vura config show       Show current configuration
-//	vura compliance check  Check compliance status
+//	agentveil proxy start       Start the Agent Veil proxy server
+//	agentveil wrap -- <cmd>     Wrap any AI tool to route through Agent Veil
+//	agentveil audit <file>      Audit a skill.md file for security issues
+//	agentveil scan <text>       Scan text for PII
+//	agentveil config show       Show current configuration
+//	agentveil compliance check  Check compliance status
 package main
 
 import (
@@ -40,7 +40,7 @@ func main() {
 	case "compliance":
 		handleCompliance(args)
 	case "version", "--version", "-v":
-		fmt.Printf("vura version %s\n", version)
+		fmt.Printf("agentveil version %s\n", version)
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -51,14 +51,14 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`vura — Security Proxy for AI Agents
+	fmt.Println(`agentveil — Security Proxy for AI Agents
 
 Usage:
-  vura <command> [arguments]
+  agentveil <command> [arguments]
 
 Commands:
-  proxy start            Start the Vura proxy server
-  wrap -- <cmd>          Wrap any AI tool to route through Vura proxy
+  proxy start            Start the Agent Veil proxy server
+  wrap -- <cmd>          Wrap any AI tool to route through Agent Veil proxy
   audit <file|->         Audit a skill.md file for security compliance
   scan <text>            Scan text for PII (Personally Identifiable Information)
   config show            Show current configuration
@@ -67,18 +67,18 @@ Commands:
   help                   Show this help
 
 Examples:
-  vura proxy start                           Start proxy on :8080
-  vura wrap -- claude-code                   Wrap Claude Code through Vura
-  vura wrap -- cursor                        Wrap Cursor through Vura
-  vura audit skill.md                        Audit a skill file
-  vura scan "CCCD: 012345678901"             Scan text for PII
-  echo "text" | vura scan -                  Scan from stdin
-  vura compliance check --framework vietnam  Check Vietnam AI Law compliance
+  agentveil proxy start                           Start proxy on :8080
+  agentveil wrap -- claude-code                   Wrap Claude Code through Agent Veil
+  agentveil wrap -- cursor                        Wrap Cursor through Agent Veil
+  agentveil audit skill.md                        Audit a skill file
+  agentveil scan "CCCD: 012345678901"             Scan text for PII
+  echo "text" | agentveil scan -                  Scan from stdin
+  agentveil compliance check --framework vietnam  Check Vietnam AI Law compliance
 
 Environment:
-  VURA_PROXY_URL         Proxy URL (default: http://localhost:8080)
-  VURA_API_KEY           API key for authentication
-  VURA_ENCRYPTION_KEY    32-byte hex key for vault encryption
+  VEIL_PROXY_URL         Proxy URL (default: http://localhost:8080)
+  VEIL_API_KEY           API key for authentication
+  VEIL_ENCRYPTION_KEY    32-byte hex key for vault encryption
   TARGET_URL             Upstream LLM API (default: https://api.openai.com)
   REDIS_ADDR             Redis address (default: localhost:6379)`)
 }

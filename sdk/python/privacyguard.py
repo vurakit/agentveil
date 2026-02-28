@@ -1,16 +1,16 @@
 """
-PrivacyGuard SDK for Python.
+Agent Veil SDK for Python.
 
 Cách 1 - Tự động (monkey-patch OpenAI):
-    import privacyguard
-    privacyguard.activate(proxy_url="http://localhost:8080", role="admin")
+    import agentveil
+    agentveil.activate(proxy_url="http://localhost:8080", role="admin")
 
 Cách 2 - OpenAI client với base_url:
     from openai import OpenAI
     client = OpenAI(base_url="http://localhost:8080/v1", api_key="sk-...")
 
 Cách 3 - Wrap bất kỳ HTTP session nào:
-    session = privacyguard.create_session(proxy_url="...", role="viewer")
+    session = agentveil.create_session(proxy_url="...", role="viewer")
     resp = session.post(url, json=payload)
 """
 
@@ -32,7 +32,7 @@ def activate(
     session_id: Optional[str] = None,
 ):
     """
-    Kích hoạt PrivacyGuard cho toàn bộ OpenAI calls.
+    Kích hoạt Agent Veil cho toàn bộ OpenAI calls.
     Chỉ cần gọi 1 lần khi khởi động app.
     """
     global _ACTIVE, _CONFIG
@@ -52,7 +52,7 @@ def activate(
 
 
 def deactivate():
-    """Tắt PrivacyGuard, khôi phục OpenAI gọi trực tiếp."""
+    """Tắt Agent Veil, khôi phục OpenAI gọi trực tiếp."""
     global _ACTIVE
     _ACTIVE = False
     os.environ.pop("OPENAI_BASE_URL", None)
@@ -68,7 +68,7 @@ def create_session(
     role: str = "admin",
     session_id: Optional[str] = None,
 ) -> requests.Session:
-    """Tạo requests.Session đã cấu hình headers PrivacyGuard."""
+    """Tạo requests.Session đã cấu hình headers Agent Veil."""
     session = requests.Session()
     sid = session_id or str(uuid.uuid4())
 

@@ -1,15 +1,15 @@
 """
-Vura PrivacyGuard LangChain Integration
+Agent Veil LangChain Integration
 
 Usage:
-    from vura_langchain import VuraCallbackHandler, VuraChatModel
+    from vura_langchain import AgentVeilCallbackHandler, AgentVeilChatModel
 
     # Option 1: Callback handler (works with any LLM)
-    handler = VuraCallbackHandler(proxy_url="http://localhost:8080")
+    handler = AgentVeilCallbackHandler(proxy_url="http://localhost:8080")
     llm = ChatOpenAI(callbacks=[handler])
 
     # Option 2: Drop-in ChatModel replacement
-    llm = VuraChatModel(proxy_url="http://localhost:8080", model="gpt-4")
+    llm = AgentVeilChatModel(proxy_url="http://localhost:8080", model="gpt-4")
     result = llm.invoke("Hello, my CCCD is 012345678901")
 """
 
@@ -22,7 +22,7 @@ from typing import Any, Dict, Iterator, List, Optional
 import requests
 
 
-class VuraCallbackHandler:
+class AgentVeilCallbackHandler:
     """LangChain callback handler that scans PII before/after LLM calls."""
 
     def __init__(
@@ -32,9 +32,9 @@ class VuraCallbackHandler:
         session_id: str | None = None,
         block_on_pii: bool = False,
     ):
-        self.proxy_url = proxy_url or os.getenv("VURA_PROXY_URL", "http://localhost:8080")
-        self.api_key = api_key or os.getenv("VURA_API_KEY", "")
-        self.session_id = session_id or os.getenv("VURA_SESSION_ID", "langchain")
+        self.proxy_url = proxy_url or os.getenv("VEIL_PROXY_URL", "http://localhost:8080")
+        self.api_key = api_key or os.getenv("VEIL_API_KEY", "")
+        self.session_id = session_id or os.getenv("VEIL_SESSION_ID", "langchain")
         self.block_on_pii = block_on_pii
         self._findings: list[dict] = []
 
@@ -89,9 +89,9 @@ class VuraCallbackHandler:
         return None
 
 
-class VuraChatModel:
+class AgentVeilChatModel:
     """
-    Drop-in LLM replacement that routes through Vura proxy.
+    Drop-in LLM replacement that routes through Agent Veil proxy.
 
     Compatible with LangChain's BaseChatModel interface pattern.
     """
@@ -108,12 +108,12 @@ class VuraChatModel:
         temperature: float = 0.7,
         max_tokens: int = 4096,
     ):
-        self.proxy_url = proxy_url or os.getenv("VURA_PROXY_URL", "http://localhost:8080")
-        self.api_key = api_key or os.getenv("VURA_API_KEY", "")
+        self.proxy_url = proxy_url or os.getenv("VEIL_PROXY_URL", "http://localhost:8080")
+        self.api_key = api_key or os.getenv("VEIL_API_KEY", "")
         self.provider_api_key = provider_api_key or os.getenv("OPENAI_API_KEY", "")
         self.model = model
         self.provider = provider
-        self.session_id = session_id or os.getenv("VURA_SESSION_ID", "langchain")
+        self.session_id = session_id or os.getenv("VEIL_SESSION_ID", "langchain")
         self.role = role
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -201,21 +201,21 @@ class VuraChatModel:
         if self.role:
             headers["X-User-Role"] = self.role
         if self.provider:
-            headers["X-Vura-Provider"] = self.provider
+            headers["X-Veil-Provider"] = self.provider
 
         return headers
 
 
-class VuraAuditor:
-    """Audit skill.md files via Vura API."""
+class AgentVeilAuditor:
+    """Audit skill.md files via Agent Veil API."""
 
     def __init__(
         self,
         proxy_url: str | None = None,
         api_key: str | None = None,
     ):
-        self.proxy_url = proxy_url or os.getenv("VURA_PROXY_URL", "http://localhost:8080")
-        self.api_key = api_key or os.getenv("VURA_API_KEY", "")
+        self.proxy_url = proxy_url or os.getenv("VEIL_PROXY_URL", "http://localhost:8080")
+        self.api_key = api_key or os.getenv("VEIL_API_KEY", "")
 
     def audit(self, content: str) -> dict:
         """Audit skill.md content and return compliance report."""

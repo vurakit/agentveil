@@ -50,17 +50,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Path-based and header-based route resolution
 
 #### CLI Tool (GĐ4)
-- `vura proxy start` — Start the proxy server
-- `vura wrap -- <cmd>` — Auto-route Claude/Cursor/Aider through proxy
-- `vura scan <text>` — Scan text for PII with confidence scores
-- `vura audit <file>` — Analyze skill.md for security risks
-- `vura compliance check` — Check against Vietnam AI Law / EU AI Act / GDPR
+- `agentveil proxy start` — Start the proxy server
+- `agentveil wrap -- <cmd>` — Auto-route Claude/Cursor/Aider through proxy
+- `agentveil scan <text>` — Scan text for PII with confidence scores
+- `agentveil audit <file>` — Analyze skill.md for security risks
+- `agentveil compliance check` — Check against Vietnam AI Law / EU AI Act / GDPR
 
 #### SDKs (GĐ4)
 - Go SDK: HTTP transport wrapper for any Go HTTP client
 - Python SDK: `activate()` monkey-patch, session management, audit API
 - Node.js/TypeScript SDK: full client with streaming, scanning, audit
-- LangChain integration: VuraCallbackHandler + VuraChatModel
+- LangChain integration: Agent VeilCallbackHandler + Agent VeilChatModel
 - MCP server for Claude Code / Cursor integration
 
 #### Integrations (GĐ4)

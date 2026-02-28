@@ -363,7 +363,7 @@ func NewCanaryStore() *CanaryStore {
 func (cs *CanaryStore) Generate(sessionID string) CanaryToken {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
-	token := "vura_canary_" + hex.EncodeToString(b)
+	token := "veil_canary_" + hex.EncodeToString(b)
 
 	canary := CanaryToken{
 		Token:     token,

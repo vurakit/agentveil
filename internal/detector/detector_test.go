@@ -3,7 +3,7 @@ package detector
 import (
 	"testing"
 
-	"github.com/vura/privacyguard/pkg/pii"
+	"github.com/vurakit/agentveil/pkg/pii"
 )
 
 func TestScan_CCCD(t *testing.T) {

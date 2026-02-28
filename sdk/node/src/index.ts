@@ -1,25 +1,25 @@
 /**
- * Vura PrivacyGuard SDK for Node.js / TypeScript
+ * Agent Veil SDK for Node.js / TypeScript
  *
  * Usage:
- *   import { VuraClient } from '@vura/sdk';
+ *   import { AgentVeilClient } from '@agentveil/sdk';
  *
- *   const vura = new VuraClient({
+ *   const veil = new AgentVeilClient({
  *     proxyUrl: 'http://localhost:8080',
- *     apiKey: 'vura_sk_...',
+ *     apiKey: 'veil_sk_...',
  *   });
  *
  *   // Use as drop-in replacement for OpenAI
- *   const response = await vura.chat({
+ *   const response = await veil.chat({
  *     model: 'gpt-4',
  *     messages: [{ role: 'user', content: 'Hello' }],
  *   });
  */
 
-export interface VuraConfig {
-  /** Vura proxy URL (default: http://localhost:8080) */
+export interface AgentVeilConfig {
+  /** Agent Veil proxy URL (default: http://localhost:8080) */
   proxyUrl?: string;
-  /** Vura API key */
+  /** Agent Veil API key */
   apiKey?: string;
   /** Provider API key (OpenAI, Anthropic, etc.) */
   providerApiKey?: string;
@@ -94,21 +94,21 @@ export interface AuditFinding {
   snippet: string;
 }
 
-export class VuraClient {
+export class AgentVeilClient {
   private config: Required<
-    Pick<VuraConfig, 'proxyUrl' | 'timeout'>
-  > & VuraConfig;
+    Pick<AgentVeilConfig, 'proxyUrl' | 'timeout'>
+  > & AgentVeilConfig;
 
-  constructor(config: VuraConfig = {}) {
+  constructor(config: AgentVeilConfig = {}) {
     this.config = {
-      proxyUrl: config.proxyUrl || process.env.VURA_PROXY_URL || 'http://localhost:8080',
+      proxyUrl: config.proxyUrl || process.env.VEIL_PROXY_URL || 'http://localhost:8080',
       timeout: config.timeout || 30000,
       ...config,
     };
   }
 
   /**
-   * Send a chat completion request through Vura proxy.
+   * Send a chat completion request through Agent Veil proxy.
    * PII is automatically anonymized before reaching the LLM.
    */
   async chat(request: ChatRequest): Promise<ChatResponse> {
@@ -123,7 +123,7 @@ export class VuraClient {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new VuraError(`Chat request failed: ${response.status}`, response.status, error);
+      throw new AgentVeilError(`Chat request failed: ${response.status}`, response.status, error);
     }
 
     return response.json() as Promise<ChatResponse>;
@@ -145,11 +145,11 @@ export class VuraClient {
     });
 
     if (!response.ok) {
-      throw new VuraError(`Stream request failed: ${response.status}`, response.status);
+      throw new AgentVeilError(`Stream request failed: ${response.status}`, response.status);
     }
 
     const reader = response.body?.getReader();
-    if (!reader) throw new VuraError('No response body', 0);
+    if (!reader) throw new AgentVeilError('No response body', 0);
 
     const decoder = new TextDecoder();
     let buffer = '';
@@ -186,7 +186,7 @@ export class VuraClient {
     });
 
     if (!response.ok) {
-      throw new VuraError(`Scan failed: ${response.status}`, response.status);
+      throw new AgentVeilError(`Scan failed: ${response.status}`, response.status);
     }
 
     return response.json() as Promise<ScanResult>;
@@ -206,14 +206,14 @@ export class VuraClient {
     });
 
     if (!response.ok) {
-      throw new VuraError(`Audit failed: ${response.status}`, response.status);
+      throw new AgentVeilError(`Audit failed: ${response.status}`, response.status);
     }
 
     return response.json() as Promise<AuditReport>;
   }
 
   /**
-   * Health check the Vura proxy.
+   * Health check the Agent Veil proxy.
    */
   async health(): Promise<{ status: string }> {
     const response = await this.fetch(`${this.config.proxyUrl}/health`);
@@ -243,7 +243,7 @@ export class VuraClient {
       headers['X-User-Role'] = this.config.role;
     }
     if (this.config.provider) {
-      headers['X-Vura-Provider'] = this.config.provider;
+      headers['X-Veil-Provider'] = this.config.provider;
     }
 
     return headers;
@@ -264,26 +264,26 @@ export class VuraClient {
   }
 }
 
-export class VuraError extends Error {
+export class AgentVeilError extends Error {
   constructor(
     message: string,
     public statusCode: number,
     public body?: string,
   ) {
     super(message);
-    this.name = 'VuraError';
+    this.name = 'AgentVeilError';
   }
 }
 
 /**
- * Helper: Get environment-configured Vura client.
- * Reads VURA_PROXY_URL, VURA_API_KEY, VURA_SESSION_ID from env.
+ * Helper: Get environment-configured Agent Veil client.
+ * Reads VEIL_PROXY_URL, VEIL_API_KEY, VEIL_SESSION_ID from env.
  */
-export function createClient(overrides?: VuraConfig): VuraClient {
-  return new VuraClient({
-    proxyUrl: process.env.VURA_PROXY_URL,
-    apiKey: process.env.VURA_API_KEY,
-    sessionId: process.env.VURA_SESSION_ID,
+export function createClient(overrides?: AgentVeilConfig): AgentVeilClient {
+  return new AgentVeilClient({
+    proxyUrl: process.env.VEIL_PROXY_URL,
+    apiKey: process.env.VEIL_API_KEY,
+    sessionId: process.env.VEIL_SESSION_ID,
     ...overrides,
   });
 }

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/vura/privacyguard/internal/detector"
+	"github.com/vurakit/agentveil/internal/detector"
 )
 
 // ScanMiddleware intercepts multipart/form-data and JSON requests containing

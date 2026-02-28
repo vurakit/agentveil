@@ -3,10 +3,10 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /privacyguard ./cmd/proxy
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /agentveil ./cmd/proxy
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates
-COPY --from=builder /privacyguard /usr/local/bin/privacyguard
+COPY --from=builder /agentveil /usr/local/bin/agentveil
 EXPOSE 8080
-ENTRYPOINT ["privacyguard"]
+ENTRYPOINT ["agentveil"]

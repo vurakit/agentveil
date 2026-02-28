@@ -1,18 +1,18 @@
 {
-  "name": "@vura/sdk",
+  "name": "@agentveil/sdk",
   "version": "0.1.0",
-  "description": "Vura PrivacyGuard SDK for Node.js / TypeScript",
+  "description": "Agent Veil SDK for Node.js / TypeScript",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "test": "node --test src/*.test.ts"
   },
-  "keywords": ["vura", "pii", "privacy", "ai", "proxy", "security"],
+  "keywords": ["agentveil", "pii", "privacy", "ai", "proxy", "security"],
   "license": "AGPL-3.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vura-ai/vura"
+    "url": "https://github.com/vurakit/agentveil"
   },
   "devDependencies": {
     "typescript": "^5.4.0"

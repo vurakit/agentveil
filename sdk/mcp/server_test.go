@@ -133,7 +133,7 @@ func TestCallTool_ScanPII_InvalidParams(t *testing.T) {
 }
 
 func TestCallTool_ScanPII_WithBackend(t *testing.T) {
-	// Mock Vura backend
+	// Mock Agent Veil backend
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{

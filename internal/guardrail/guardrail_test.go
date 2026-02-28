@@ -173,7 +173,7 @@ func TestTruncateOutput(t *testing.T) {
 	truncated := g.TruncateOutput(long)
 	if len(truncated) > 80 {
 		// 40 chars + truncation message
-		if !strings.Contains(truncated, "[Output truncated by Vura guardrail]") {
+		if !strings.Contains(truncated, "[Output truncated by Agent Veil guardrail]") {
 			t.Error("expected truncation marker")
 		}
 	}

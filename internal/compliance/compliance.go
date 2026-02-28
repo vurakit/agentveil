@@ -321,14 +321,14 @@ func (r ComplianceReport) ReportJSON() ([]byte, error) {
 // ReportHTML returns a formatted HTML compliance report
 func (r ComplianceReport) ReportHTML() string {
 	var sb strings.Builder
-	sb.WriteString("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Vura Compliance Report</title>")
+	sb.WriteString("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Agent Veil Compliance Report</title>")
 	sb.WriteString("<style>body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:20px}")
 	sb.WriteString(".compliant{color:#16a34a}.non_compliant{color:#dc2626}.partial{color:#ca8a04}")
 	sb.WriteString("table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:8px;text-align:left}")
 	sb.WriteString(".score{font-size:2em;font-weight:bold}")
 	sb.WriteString("</style></head><body>")
 
-	sb.WriteString("<h1>Vura Compliance Report</h1>")
+	sb.WriteString("<h1>Agent Veil Compliance Report</h1>")
 	sb.WriteString(fmt.Sprintf("<p class='score'>%.0f/100</p>", r.OverallScore))
 	sb.WriteString(fmt.Sprintf("<p>%s</p>", r.Summary))
 	sb.WriteString(fmt.Sprintf("<p><em>Generated: %s</em></p>", r.GeneratedAt.Format("2006-01-02 15:04:05")))

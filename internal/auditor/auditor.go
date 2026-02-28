@@ -51,13 +51,13 @@ func (r Report) ReportJSON() ([]byte, error) {
 // ReportHTML returns a simple HTML report
 func (r Report) ReportHTML() string {
 	var sb strings.Builder
-	sb.WriteString("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Vura Audit Report</title>")
+	sb.WriteString("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Agent Veil Audit Report</title>")
 	sb.WriteString("<style>body{font-family:sans-serif;max-width:800px;margin:0 auto;padding:20px}")
 	sb.WriteString(".critical{color:#dc2626}.high{color:#ea580c}.medium{color:#ca8a04}.low{color:#16a34a}")
 	sb.WriteString("table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:8px;text-align:left}")
 	sb.WriteString("</style></head><body>")
 
-	sb.WriteString(fmt.Sprintf("<h1>Vura Audit Report</h1>"))
+	sb.WriteString(fmt.Sprintf("<h1>Agent Veil Audit Report</h1>"))
 	sb.WriteString(fmt.Sprintf("<p><strong>Risk Level:</strong> <span class='%s'>%s</span></p>",
 		strings.ToLower(r.RiskLevelLabel), r.RiskLevelLabel))
 	sb.WriteString(fmt.Sprintf("<p><strong>Compliance Score:</strong> %.1f/100</p>", r.Score))
